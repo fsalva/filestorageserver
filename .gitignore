@@ -1,1 +1,4 @@
+#Ignora file di testo
 *.txt
+#Ignora risultati della compilazione.
+*.o
