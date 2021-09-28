@@ -1,7 +1,7 @@
 
 #Specifiche per il compilatore
 CC = gcc 
-CFLAGS = -Wall -Wextra -pedantic -Ilib/
+CFLAGS = -Wall -Wextra -pedantic -lpthread -Ilib/ 
 objects = server.o
 DEPS = ./lib/constvalues.h
 

@@ -6,4 +6,4 @@
 #define MAXLINE 4096
 #define BUFSIZE 4096
 #define UNIX_PATH_MAX 108
-#define SERVER_QUEUE 5
+#define SERVER_QUEUE 10

@@ -22,7 +22,7 @@
 
 
 /* Commentare e decommentare per eseguire parti di codice. */
-//#define thread
+#define thread
 #define config
 
 //TODO: Sposta su libreria.
@@ -37,6 +37,8 @@
 
 
 int ACTIVE_SOCKET = 0;
+int keepRunning = 1;
+
 #ifdef thread
 
 
@@ -67,27 +69,15 @@ static void Pthread_mutex_unlock ( pthread_mutex_t *mtx)
     else printf("\n [ Unlocked ]");
 }
 
-static void* myFun (void* arg){
-    while (x < (int) arg) {
-        Pthread_mutex_lock(&mtx);
-        printf("\nSecondo thread: x = %d\n", ++x);
-        fflush(stdout);
-        Pthread_mutex_unlock(&mtx);
-        sleep(1);
-    }
-
-    pthread_exit((void *) 17); /* === a return (void*) 17*/
-}
 #endif
 
 static void parse_configuration (struct configuration_t *);
 
-int connection_handler(int);
+void * connection_handler(void *);
 
 void intHandler() {
+    keepRunning = 0;
     close(ACTIVE_SOCKET);
-    unlink(SOCKNAME);
-    exit(0);
 }
 
 int main(int argc, char const *argv[])
@@ -95,9 +85,11 @@ int main(int argc, char const *argv[])
     signal(SIGINT, intHandler);
 
     #ifdef thread
+    
     /* Thread */
-    pthread_t tid; 
+    pthread_t t; 
     int err, status;
+
     #endif
 
     /* Variabili per la server socket */
@@ -108,39 +100,14 @@ int main(int argc, char const *argv[])
     if(argc > 0) {if(argv[0] == NULL) {} }
 
     #ifdef config
-        parse_configuration(&configuration_parsed);
-
-        printf("%d%s", CP.max_dim, CP.bytes_order);
-
-        
+    
+    /**
+     * Esegue il parsing della configurazione del server, e lo 
+     * restituisce nella struttura dati sopra. 
+     */
+    parse_configuration(&configuration_parsed);    
+    
     #endif
-
-
-    #ifdef thread 
-
-        assert(sizeof(int)<= sizeof(void*)); 
-
-        if (( err=pthread_create(&tid, NULL, &myFun, (void *) 10 ) != 0 ))
-        {   
-            /* Gestione dell'errore */
-
-        } 
-        else
-        {   
-            /* Il secondo thread viene creato. */
-            while(x < 10){
-                printf("\nPrimo thread x = %d\n", ++x);
-                fflush(stdout);
-                sleep(1);
-                
-            }
-            pthread_join(tid,(void*) &status);
-            printf("\n ** Thread 2 termina >> status code: %d\n", status);
-            fflush(stdout);
-        }
-        
-    #endif
-
      
     if (( server_socket = socket(AF_UNIX, SOCK_STREAM, 0 )) < 0) //Creo una socket.
         perror("Errore nella creazione della socket: ");
@@ -158,7 +125,7 @@ int main(int argc, char const *argv[])
 
     //Entro nel loop del server.
     //TODO: condizione d'uscita per spegnere tutto ordinatamente.  
-    while(1){
+    while(keepRunning){
 
         printf("Attendo connessioni... \n");
         fflush(stdout);
@@ -166,15 +133,15 @@ int main(int argc, char const *argv[])
         //Si blocca in attesa di connessioni, restituisce un file descriptor. 
         client_socket = accept(server_socket, NULL, 0);
         
+        int * p_client = malloc(sizeof(int));
+        * p_client = client_socket;
+        pthread_create(&t, NULL, connection_handler, p_client);
+
         if(client_socket < 0)
             perror("Errore durante l'accettazione della connessione!");
-
-
-        connection_handler(client_socket);
     }
-
-
-
+    
+    unlink(SOCKNAME);
     return 0;
 }
 
@@ -215,10 +182,8 @@ if ((fptr = fopen(CONFIG_PATH ,"r")) == NULL){
                 * di grandezza scritto in configurazione. +1 per il carattere di terminazione 
                 * della stringa '\0. 
                 * */
-                char * make_space = (char *) malloc(sizeof(char) * (strlen(key) + 1));
-                strcpy(make_space, key); //E ci copio dentro la stringa
-                obj->bytes_order = make_space; counter++;
-                free(make_space);
+                obj->bytes_order = strdup(key); //E ci copio dentro la stringa
+                counter++;
                 break;
 
             case 2:
@@ -226,18 +191,25 @@ if ((fptr = fopen(CONFIG_PATH ,"r")) == NULL){
                 break;
 
             default:
+                free(line);
+                free(key);
+                free(fptr); 
+                fclose(fptr);
                 break;
             }
         }
     }
 
-    fclose(fptr); 
+    
+
 
 }
 
-int connection_handler (int client_socket) {
+void * connection_handler (void* p_client_socket) {
     
-    
+    int client_socket = *((int *) p_client_socket) ; 
+    free(p_client_socket);
+
     ACTIVE_SOCKET = client_socket;
 
     char buff[MAXLINE+1];
@@ -261,21 +233,18 @@ int connection_handler (int client_socket) {
 
     if((int) bytes_read == -1) perror("Errore in lettura: ");   
 
-    printf("Client requests: %s", buff);
+    printf("Client requests: %s\n", buff);
     fflush(stdout);
 
     /**
      * Se mi mandano un path sbagliato fallisce, 
      * e chiude la connessione
      */
-    if( (path = (realpath("./testfiles/lipsum.txt", NULL))) == NULL){ 
+    if( (path = (realpath(buff, NULL))) == NULL){ 
         perror("RealPath: "); 
         close(client_socket); 
-        return -1;
+        return NULL;
     }
-
-    printf("Path: %s", path);
-    fflush(stdout);
 
     /**
      * Come sopra. 
@@ -285,18 +254,21 @@ int connection_handler (int client_socket) {
     if (fp == NULL) { 
         perror("Errore nell'apertura del file: "); 
         close(client_socket); 
-        return -1;
+        return NULL;
     }
 
-    bytes_read = fread(buff, sizeof(char), BUFSIZE, fp);
-    printf("Invio %zu bytes.\n", bytes_read);
-    fflush(stdout);
-    write(client_socket, buff, bytes_read);
-
+    while((bytes_read = fread(buff, sizeof(char), BUFSIZE, fp)) > 0)
+    {
+        printf("Invio %zu bytes.\n", bytes_read);
+        fflush(stdout);
+        write(client_socket, buff, bytes_read);
+    }
+    
+   
 
     free(path);
     close(client_socket);
     fclose(fp);
 
-    return 0;
+    return NULL;
 }
