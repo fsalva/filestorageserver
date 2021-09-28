@@ -35,9 +35,13 @@
 
     } configuration_parsed;
 
+
+int ACTIVE_SOCKET = 0;
+#ifdef thread
+
+
 static pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
 static int x;
-int ACTIVE_SOCKET = 0;
 
 static void Pthread_mutex_lock ( pthread_mutex_t *mtx)
 {
@@ -74,12 +78,13 @@ static void* myFun (void* arg){
 
     pthread_exit((void *) 17); /* === a return (void*) 17*/
 }
+#endif
 
-static struct configuration_t parse_configuration (struct configuration_t *);
+static void parse_configuration (struct configuration_t *);
 
 int connection_handler(int);
 
-void intHandler(int dummy) {
+void intHandler() {
     close(ACTIVE_SOCKET);
     unlink(SOCKNAME);
     exit(0);
@@ -89,20 +94,19 @@ int main(int argc, char const *argv[])
 {
     signal(SIGINT, intHandler);
 
+    #ifdef thread
     /* Thread */
     pthread_t tid; 
     int err, status;
-    
+    #endif
+
     /* Variabili per la server socket */
-    int server_socket, client_socket, n;
+    int server_socket, client_socket;
     SA sockaddr;
-    socklen_t addr_len;
-    char client_address[MAXLINE +1];
 
-    int sendbytes;
-    
+    //TODO: Rimuovere il warning.
+    if(argc > 0) {if(argv[0] == NULL) {} }
 
- 
     #ifdef config
         parse_configuration(&configuration_parsed);
 
@@ -110,7 +114,6 @@ int main(int argc, char const *argv[])
 
         
     #endif
-
 
 
     #ifdef thread 
@@ -145,11 +148,12 @@ int main(int argc, char const *argv[])
     sockaddr.sun_family = AF_UNIX;
     strncpy(sockaddr.sun_path, SOCKNAME, UNIX_PATH_MAX);
 
-    if((bind(server_socket, (SA *) &sockaddr, sizeof(sockaddr))) < 0)    //Binding della socket all'indirizzo.
+    if((bind(server_socket, (struct sockaddr *) &sockaddr, sizeof(sockaddr))) < 0)    //Binding della socket all'indirizzo.
         perror("Errore durante il binding: ");
 
     if((listen(server_socket, SERVER_QUEUE)) < 0)  //Si mette in ascolto.
         perror("Errore durante l'ascolto della socket: ");
+
 
 
     //Entro nel loop del server.
@@ -167,17 +171,14 @@ int main(int argc, char const *argv[])
 
 
         connection_handler(client_socket);
-
-
-
-
     }
+
 
 
     return 0;
 }
 
-static struct configuration_t parse_configuration (struct configuration_t * obj){
+static void parse_configuration (struct configuration_t * obj){
     
 /* File di configurazione */
     FILE *fptr;
@@ -217,6 +218,7 @@ if ((fptr = fopen(CONFIG_PATH ,"r")) == NULL){
                 char * make_space = (char *) malloc(sizeof(char) * (strlen(key) + 1));
                 strcpy(make_space, key); //E ci copio dentro la stringa
                 obj->bytes_order = make_space; counter++;
+                free(make_space);
                 break;
 
             case 2:
@@ -228,6 +230,7 @@ if ((fptr = fopen(CONFIG_PATH ,"r")) == NULL){
             }
         }
     }
+
     fclose(fptr); 
 
 }
@@ -237,29 +240,29 @@ int connection_handler (int client_socket) {
     
     ACTIVE_SOCKET = client_socket;
 
-    int n;
-    char * buff[MAXLINE+1];
-    char * recvline[MAXLINE+1];
+    char buff[MAXLINE+1];
     char * path = NULL; 
-    char * requested[MAXLINE +1];
     size_t bytes_read;
     size_t dataLen = 0; 
-    ssize_t b;
 
     //Azzero il buffer.
-    memset(recvline, 0 , MAXLINE);  
+    memset(buff, 0 , MAXLINE);  
 
     //Leggo il messaggio del client.
-    while ((bytes_read = read(client_socket, recvline + dataLen, sizeof(recvline) - dataLen - 1)) > 0)
+    while ((bytes_read = read(client_socket, buff + dataLen, sizeof(buff) - dataLen - 1)) > 0)
     {
        dataLen += bytes_read;
        //Se esco dai limiti del buffer o leggo un 'a capo' esco dal ciclo.  
-       if(dataLen > MAXLINE -1 || recvline[dataLen -1] == '\n') break;
+       if(buff[dataLen - 1] == '\n' || dataLen > (MAXLINE-1)) break;
+
     }
 
-    if(bytes_read == -1) perror("Errore in lettura: ");   
+    buff[dataLen-1] = 0;
 
-    printf("Client requests: %s", recvline);
+    if((int) bytes_read == -1) perror("Errore in lettura: ");   
+
+    printf("Client requests: %s", buff);
+    fflush(stdout);
 
     /**
      * Se mi mandano un path sbagliato fallisce, 
@@ -285,16 +288,11 @@ int connection_handler (int client_socket) {
         return -1;
     }
 
-    while(( bytes_read = fread(buff, 1, BUFSIZE, fp)) > 0 ){
-        printf("\nsending %zu bytes\n", bytes_read);
-        fflush(stdout);
-        if(write(client_socket, buff, bytes_read) == -1){
-            perror("Write: ");
-            close(client_socket);
-            return -1;
-        }
+    bytes_read = fread(buff, sizeof(char), BUFSIZE, fp);
+    printf("Invio %zu bytes.\n", bytes_read);
+    fflush(stdout);
+    write(client_socket, buff, bytes_read);
 
-    }
 
     free(path);
     close(client_socket);
