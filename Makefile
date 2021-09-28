@@ -8,7 +8,7 @@ DEPS = ./lib/constvalues.h
 %.o: %.c 
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-exe: $(objects)
+server: $(objects)
 	$(CC) $(CFLAGS) -o $@ $^  $(DEPS)
 
 .PHONY : clean
