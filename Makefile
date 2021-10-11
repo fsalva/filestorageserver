@@ -2,14 +2,19 @@
 #Specifiche per il compilatore
 CC = gcc 
 CFLAGS = -Wall -Wextra -pedantic -lpthread -Ilib/ 
-objects = server.o
-DEPS = ./lib/constvalues.h
+objects = server.o 
+LIBSRCPATH = ./lib/src/
+LIBPATH = ./lib/
+DEPS = ./lib/constvalues.h ./lib/fsqueue.h
 
-%.o: %.c 
-	$(CC) $(CFLAGS) -c -o $@ $<
 
-server: $(objects)
+server: $(objects) fsqueue.o 
 	$(CC) $(CFLAGS) -o $@ $^  $(DEPS)
+
+fsqueue.o: $(LIBSRCPATH)fsqueue.c $(LIBPATH)fsqueue.h
+	$(CC) $(CFLAGS) -c $(LIBSRCPATH)fsqueue.c
+
+
 
 .PHONY : clean
 clean: 

@@ -5,10 +5,12 @@
             "label": "C/C++: gcc compila il file attivo",
             "command": "/usr/bin/gcc",
             "args": [
+                "-Wall",
                 "-g",
                 "${file}",
                 "-o",
-                "${fileDirname}/${fileBasenameNoExtension}"
+                "${fileDirname}/${fileBasenameNoExtension}", "-lpthread"
+            
             ],
             "options": {
                 "cwd": "${fileDirname}"

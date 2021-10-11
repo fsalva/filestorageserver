@@ -8,7 +8,7 @@ s.write("./testfiles/#{ARGV[0]}.txt\n")
 
 
 s.each_line do |line|
-	puts line
+#	puts line
 end
 s.close
 

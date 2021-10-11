@@ -13,6 +13,7 @@
 #include <pthread.h>
 #include <limits.h>
 
+#include "./lib/fsqueue.h"
 #include "./lib/constvalues.h"
 
 //Per abbreviare il codice.
@@ -41,9 +42,9 @@ int keepRunning = 1;
 
 #ifdef thread
 
-
 static pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
-static int x;
+pthread_t pool[THREAD_POOL_SIZE];
+
 
 static void Pthread_mutex_lock ( pthread_mutex_t *mtx)
 {
@@ -51,7 +52,7 @@ static void Pthread_mutex_lock ( pthread_mutex_t *mtx)
     if( ( err = pthread_mutex_lock(mtx) != 0)){
         errno = err;
         perror("lock");
-        pthread_exit(errno);
+        pthread_exit((void *)(intptr_t) errno);
     }
 
     else printf("\n [ Locked ]");
@@ -63,21 +64,26 @@ static void Pthread_mutex_unlock ( pthread_mutex_t *mtx)
     if( ( err = pthread_mutex_unlock(mtx) != 0)){
         errno = err;
         perror("unlock");
-        pthread_exit(errno);
+        pthread_exit((void *)(intptr_t) errno);
     }
 
-    else printf("\n [ Unlocked ]");
+    else fprintf(stdout, "\n [ Unlocked ]");
+    fflush(stdout);
 }
 
 #endif
 
+
 static void parse_configuration (struct configuration_t *);
 
-void * connection_handler(void *);
+void * connection_handler(int *);
+
 
 void intHandler() {
     keepRunning = 0;
     close(ACTIVE_SOCKET);
+    unlink(SOCKNAME);
+    exit(0);
 }
 
 int main(int argc, char const *argv[])
@@ -88,7 +94,15 @@ int main(int argc, char const *argv[])
     
     /* Thread */
     pthread_t t; 
-    int err, status;
+
+/* 
+    for (int i = 0; i < THREAD_POOL_SIZE; i++)
+    {
+        pthread_create(&t, NULL, connection_handler, NULL);
+    } */
+    
+
+    //int err, status;
 
     #endif
 
@@ -125,22 +139,27 @@ int main(int argc, char const *argv[])
 
     //Entro nel loop del server.
     //TODO: condizione d'uscita per spegnere tutto ordinatamente.  
-    while(keepRunning){
+    while(1){
 
         printf("Attendo connessioni... \n");
-        fflush(stdout);
 
         //Si blocca in attesa di connessioni, restituisce un file descriptor. 
         client_socket = accept(server_socket, NULL, 0);
-        
-        int * p_client = malloc(sizeof(int));
-        * p_client = client_socket;
-        pthread_create(&t, NULL, connection_handler, p_client);
 
-        if(client_socket < 0)
-            perror("Errore durante l'accettazione della connessione!");
+        if(client_socket == -1)
+            perror("Accept(): ");
+        else 
+        {
+            int * p_client = malloc(sizeof(int));
+            * p_client = client_socket;
+
+            pthread_create(&t, NULL, connection_handler, p_client);
+            
+        }
+
     }
-    
+
+    printf("Chiudo!");
     unlink(SOCKNAME);
     return 0;
 }
@@ -205,9 +224,9 @@ if ((fptr = fopen(CONFIG_PATH ,"r")) == NULL){
 
 }
 
-void * connection_handler (void* p_client_socket) {
+void * connection_handler (int* p_client_socket) {
     
-    int client_socket = *((int *) p_client_socket) ; 
+    int client_socket =  * p_client_socket; 
     free(p_client_socket);
 
     ACTIVE_SOCKET = client_socket;
@@ -250,24 +269,28 @@ void * connection_handler (void* p_client_socket) {
      * Come sopra. 
      * Se fallisce chiudo tutto.
      */
+
     FILE *fp = fopen(path, "r");
     if (fp == NULL) { 
         perror("Errore nell'apertura del file: "); 
         close(client_socket); 
         return NULL;
-    }
+    } 
 
     while((bytes_read = fread(buff, sizeof(char), BUFSIZE, fp)) > 0)
     {
         printf("Invio %zu bytes.\n", bytes_read);
         fflush(stdout);
         write(client_socket, buff, bytes_read);
+        perror("write: ");
+
     }
-    
-   
+
+
 
     free(path);
     close(client_socket);
+    perror("Close: ");
     fclose(fp);
 
     return NULL;

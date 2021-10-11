@@ -7,3 +7,6 @@
 #define BUFSIZE 4096
 #define UNIX_PATH_MAX 108
 #define SERVER_QUEUE 10
+#define THREAD_POOL_SIZE 20
+
+typedef int make_iso_compilers_happy;
