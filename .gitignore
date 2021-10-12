@@ -1,4 +1,13 @@
-#Ignora file di testo
-*.txt
 #Ignora risultati della compilazione.
 *.o
+
+#Cartelle di testing e debug 
+script/
+testfiles/
+
+#visual studio code
+.vscode/
+
+
+#Eventuali socket dimenticate
+*.sock
