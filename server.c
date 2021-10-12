@@ -223,6 +223,7 @@ if ((fptr = fopen(CONFIG_PATH ,"r")) == NULL){
                 break;
 
             default:
+                //Finito di leggere libero tutto.
                 free(line);
                 free(key);
                 free(fptr); 
@@ -233,6 +234,13 @@ if ((fptr = fopen(CONFIG_PATH ,"r")) == NULL){
     }
 }
 
+/**
+ * @brief Gestione dei task. Ad ora, legge le richieste di file da parte del client e glieli restituisce sulla socket. 
+ * 
+ * @param p_client_socket sarebbe un int, ma il compilatore si lamenta, viene castato subito dopo. 
+ * 
+ * @return void* 
+ */
 void * connection_handler (void* p_client_socket) {
     
     int client_socket =  * ((int*)p_client_socket); 
@@ -315,25 +323,43 @@ void * connection_handler (void* p_client_socket) {
     return NULL;
 }
 
+/**
+ * @brief Funzione che viene passata ai thread di default alla creazione.
+ * 
+ * @param arg per uso futuro
+ * @return void* per essere conforme con le specifiche di pthread. 
+ */
 void * thread_function(void * arg){
+
+    //TODO: Aggiungere cond. di terminazione.
     while (1)
     {
+        //numero della socket e puntatore.
         int client; 
         int * p_client = malloc(sizeof(int));
 
+        //Acquisisco la lock.
         Pthread_mutex_lock(&mtx);
         
+        //Se non c'è lavoro da fare mi metto in attesa.
         if((client = dequeue(&head)) == -1){
+            
+            //E attendo un segnale per essere risvegliato, rilasciando la lock. 
             pthread_cond_wait(&cond_var, &mtx);
-            //riprova
+            
+            //Riprovo!
             client = dequeue(&head);
         } 
+        //Mollo definitivamente la lock.
         Pthread_mutex_unlock(&mtx);
 
+        //Se il thread è stato assegnato ad un task: 
         if(client != -1){
+            
+            //Passo alla funzione che gestisce i task il client socket.
             * p_client = client;
 
-            printf("Connesso!");
+            //ed eseguo il lavoro.
             connection_handler(p_client);
         }
     }
