@@ -6,12 +6,12 @@ s = UNIXSocket.new("/home/francesco/Documenti/Unipi/Sistemi Operativi/Progetto/f
 
 s.write("./testfiles/#{ARGV[0]}.txt\n")
 
-
-s.each_line do |line|
-#	puts line
+s.each_line do |line| 
+	#puts line
 end
+
 s.close
 
 endtime = Process.clock_gettime(Process::CLOCK_MONOTONIC)
 elapsed = endtime - starttime
-puts "Elapsed: #{elapsed}" 
+puts "Elapsed: #{elapsed} #{ARGV[1]}"

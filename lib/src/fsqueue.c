@@ -1,6 +1,6 @@
 
 #include <stdlib.h>
-#include "../lib/fsqueue.h"
+#include "../fsqueue.h"
 
 
 
