@@ -9,3 +9,4 @@ void enqueue(node_t ** head, int val);
 
 int dequeue(node_t ** head);
 
+void print_queue(node_t ** head);

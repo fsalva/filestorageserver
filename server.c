@@ -15,6 +15,7 @@
 
 #include "./lib/fsqueue.h"
 #include "./lib/constvalues.h"
+#include "./lib/icl_hash.h"
 
 //Per abbreviare il codice.
 #define SA struct sockaddr_un
@@ -37,20 +38,43 @@ struct configuration_t
 int keepRunning = 1;
 int handledSuccessfully = 0;
 
+int s_socket = -1;
+
 /* Queue */
-node_t * head = NULL;
-node_t * bad_sockets = NULL;
+node_t * read_queue = NULL;
+
+node_t * td_sockets = NULL;
+
+icl_hash_t hash_map;
+
+typedef struct _socket_used
+{
+    int socketN;
+    int used; 
+
+} socket_used;
 
 
-static pthread_mutex_t mtx = PTHREAD_MUTEX_INITIALIZER;
+socket_used socket_array[1024];
+
+static pthread_mutex_t sk_mtx = PTHREAD_MUTEX_INITIALIZER;
+
+static pthread_mutex_t rd_mtx = PTHREAD_MUTEX_INITIALIZER;
+
 static pthread_mutex_t ctr_mtx = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t bad_socket_mtx = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t td_mtx = PTHREAD_MUTEX_INITIALIZER;
 
 
-static pthread_cond_t cond_var = PTHREAD_COND_INITIALIZER;
-static pthread_cond_t remove_socket_cond_var = PTHREAD_COND_INITIALIZER;
+
+static pthread_cond_t read_cond_var = PTHREAD_COND_INITIALIZER;
+//Server-socket-set
+static pthread_cond_t ssset_cond_var = PTHREAD_COND_INITIALIZER;
+
 
 pthread_t thread_pool[THREAD_POOL_SIZE];
+
+pthread_t monitor_thread;
+
 
 static void Pthread_mutex_lock ( pthread_mutex_t *mtx)
 {
@@ -81,6 +105,7 @@ static void parse_configuration (struct configuration_t *);
 
 void * connection_handler(void *);
 void * thread_function(void *);
+void * monitor_function(void *);
 
 void intHandler() {
     keepRunning = 0;
@@ -94,19 +119,25 @@ void intHandler() {
 int main(int argc, char const *argv[])
 {
     signal(SIGINT, intHandler);
+    signal(SIGPIPE, SIG_IGN);
 
-
-    
-
-
-    //Creo la mia thread pool. 
+    //Creo la mia thread pool di workers. 
     for (int i = 0; i < THREAD_POOL_SIZE; i++)
     {
         pthread_create(&thread_pool[i], NULL, thread_function, NULL);
     } 
+
+    for (int i = 0; i < 1024; i++)
+    {
+        socket_array[i].used = 0;
+    }
     
+    
+    //Creo il mio thread "monitor"
+    //pthread_create(&monitor_thread, NULL, monitor_function, NULL);
+
     /* Variabili per la server socket */
-    int server_socket, client_socket;
+    int server_socket;
     SA sockaddr;
 
     //TODO: Rimuovere il warning.
@@ -134,101 +165,48 @@ int main(int argc, char const *argv[])
     if((listen(server_socket, SERVER_QUEUE)) < 0)  //Si mette in ascolto.
         perror("Errore durante l'ascolto della socket: ");
 
-    //-- socket attivi e socket pronti ad essere letti.
-    fd_set curr_sockets, ready_sockets;
-    int max_socket = server_socket;
+    s_socket = server_socket;
 
-    // -- timeout
-    struct timeval timeout = {1, 0};
-
-    int sel_result;
-    int curr, temp; 
-
-    //inizializzo
-    FD_ZERO(&curr_sockets);
-    FD_SET(server_socket, &curr_sockets);
-
+    pthread_cond_signal(&ssset_cond_var);
 
 
     //Entro nel loop del server.
     //TODO: condizione d'uscita per spegnere tutto ordinatamente.  
-    while(1){
-        printf("\nAttendo connessioni... \n");
 
-        ready_sockets = curr_sockets;
+    printf("\nAttendo connessioni... \n");        
+    
+    //Dichiaro gli interest set da monitorare. 
+    fd_set rd_set, cr_set;
 
-        if((sel_result = (select(max_socket + 1, &ready_sockets, NULL, NULL, &timeout))) < 0){
-            perror("select error: ");
-            //exit(EXIT_FAILURE);
-        }
-        if(sel_result == 0) {
-            if((curr = dequeue(&bad_sockets)) == -1){
-            
-            //E attendo un segnale per essere risvegliato, rilasciando la lock. 
-            pthread_cond_wait(&remove_socket_cond_var, &bad_socket_mtx);
-            
-            //Riprovo!
-            curr = dequeue(&bad_sockets);
-            } 
+    struct timeval timeout = {1,0};
 
-            //Mollo la lock sulla coda.
-            Pthread_mutex_unlock(&bad_socket_mtx);
 
-            //Se il thread è stato assegnato ad un task: 
-            if(curr != -1){
-                temp = curr; 
-                close(temp); // -- chiudo la socket
-                temp = -1; // -- e la setto a -1.
+    int client_socket;
+    
+    while (1)
+    {
 
-                FD_CLR(curr, &curr_sockets);
-            }
+        client_socket = accept(s_socket, NULL, 0);
+        fprintf(stderr, "\n[👋] Connessione in arrivo sul fd: %d! ", client_socket);
+        if(client_socket == -1) perror("Accept(): ");
 
-            //Resetto il timer.
-            timeout.tv_sec = 1;
-            timeout.tv_usec = 0;
-        }
-        
-
-        else
-        {
-            for( int i = 0; i <= max_socket; i++){
-
-                if(FD_ISSET(i, &ready_sockets)){
-                    
-                    if (i == server_socket){
                         
-                        // -- c'è una nuova connessione
-                        client_socket = accept(server_socket, NULL, 0);
-                        FD_SET(client_socket, &curr_sockets);
-                        if(client_socket == -1) perror("Accept(): ");
-                        if(client_socket > max_socket) max_socket = client_socket;
-                        fprintf(stderr, "\n[+] Una nuova connessione! \n    Socket FD number: %d ", client_socket);
-                    } 
-                    else {
-                        fprintf(stderr, "\n[+] Client con socket ID: %d vuole scrivere! ", i);
+               
+        // -- è un client pronto ad inviare dati
 
-                        // -- è un client pronto ad inviare dati
-                        int * p_client = malloc(sizeof(int));
-                        * p_client = i;
+        fprintf(stderr, "\n[📬] Client %d ha una richiesta! ", client_socket);
 
-                        //Ottengo la lock sulla coda
-                        Pthread_mutex_lock(&mtx);
-                        //Inserisco la socket del client nella lista
-                        enqueue(&head, * p_client);
-                        //Segnalo ad un thread l'arrivo di un task
-                        pthread_cond_signal(&cond_var);
-                        //Sblocco la coda.
-                        Pthread_mutex_unlock(&mtx);
+        int * p_client = malloc(sizeof(int));   // -- creo un puntatore al fd per passarlo alla coda. 
+        * p_client = client_socket;
 
-                    }
-                }
-            }
-        } 
-       
-        
-        
-
-        
+        //Ottengo la lock sulla coda
+        Pthread_mutex_lock(&rd_mtx);
+        //Inserisco la socket del client nella lista
+        enqueue(&read_queue, * p_client);
+        //Segnalo ad un thread l'arrivo di un task
+        pthread_cond_signal(&read_cond_var);
+        //Sblocco la coda.
+        Pthread_mutex_unlock(&rd_mtx);    
     }
 
     printf("Chiudo!");
@@ -340,16 +318,9 @@ void * connection_handler (void* p_client_socket) {
 
     if((int) bytes_read == -1){ // -- Errore in lettura (Socket da chiudere).
         shutdown(client_socket, SHUT_RDWR);
-        perror("Read: ");
-        
-        Pthread_mutex_lock(&bad_socket_mtx);
-        enqueue(&bad_sockets, client_socket);
-        Pthread_mutex_unlock(&bad_socket_mtx);
-
-        pthread_cond_signal(&remove_socket_cond_var);
-
-
+        perror("Read: ");            
         return NULL;
+
     } else { 
         /**
          * Se mi mandano un path sbagliato fallisce, 
@@ -358,14 +329,6 @@ void * connection_handler (void* p_client_socket) {
         if( (path = (realpath(buff, NULL))) == NULL){ 
             shutdown(client_socket, SHUT_RDWR);
             perror("RealPath: ");
-            
-            Pthread_mutex_lock(&bad_socket_mtx);
-            enqueue(&bad_sockets, client_socket);
-            Pthread_mutex_unlock(&bad_socket_mtx);
-
-            pthread_cond_signal(&remove_socket_cond_var);
-
-
             return NULL;
         }
 
@@ -378,15 +341,6 @@ void * connection_handler (void* p_client_socket) {
         fp = fopen(path, "r");
         if (fp == NULL) { 
             perror("Errore nell'apertura del file: "); 
-            shutdown(client_socket, SHUT_RDWR);
-            perror("FOPEN: ");
-
-            Pthread_mutex_lock(&bad_socket_mtx);
-            enqueue(&bad_sockets, client_socket);
-            Pthread_mutex_unlock(&bad_socket_mtx);
-
-            pthread_cond_signal(&remove_socket_cond_var);
-
             return NULL;
         } 
 
@@ -397,16 +351,21 @@ void * connection_handler (void* p_client_socket) {
          * altrimenti la write invoca un'eccezione per via della pipe rotta. 
          */
         
+        int n;
+
         while((bytes_read = fread(buff, sizeof(char), BUFSIZE, fp)) > 0)
         {
             printf("Invio %zu bytes.\n", bytes_read);
             fflush(stdout);
-            write(client_socket, buff, bytes_read);
+            
+            
+            if((n =  write(client_socket, buff, bytes_read)) <= 0){
+                perror("[-] Write: ");
+                //Ignoro SIGPIPE e chiudo manualmente le connessioni lato server.
+            }
         }
 
-
-        //close(client_socket); 
-        //client_socket = -1;
+        close(client_socket);
         
         //Chiudo il file (TODO: va modificato per leggere in memoria, non da file system!)
         fclose(fp);
@@ -414,7 +373,6 @@ void * connection_handler (void* p_client_socket) {
         //Libero la memoria usata per il path
         free(path);
         
-
         Pthread_mutex_lock(&ctr_mtx);
         handledSuccessfully++;
         Pthread_mutex_unlock(&ctr_mtx);
@@ -441,19 +399,19 @@ void * thread_function( void __attribute((unused)) * arg){
         int * p_client = malloc(sizeof(int)); // -- mantengo un puntatore per passarlo all'handler. 
 
         //Acquisisco la lock.
-        Pthread_mutex_lock(&mtx);
+        Pthread_mutex_lock(&rd_mtx);
         
         //Se non c'è lavoro da fare mi metto in attesa.
-        if((client = dequeue(&head)) == -1){
+        if((client = dequeue(&read_queue)) == -1){
             
             //E attendo un segnale per essere risvegliato, rilasciando la lock. 
-            pthread_cond_wait(&cond_var, &mtx);
+            pthread_cond_wait(&read_cond_var, &rd_mtx);
             
             //Riprovo!
-            client = dequeue(&head);
+            client = dequeue(&read_queue);
         } 
         //Mollo la lock sulla coda.
-        Pthread_mutex_unlock(&mtx);
+        Pthread_mutex_unlock(&rd_mtx);
 
         //Se il thread è stato assegnato ad un task: 
         if(client != -1){
@@ -465,5 +423,5 @@ void * thread_function( void __attribute((unused)) * arg){
             connection_handler(p_client);
         }
     }
-    
 }
+

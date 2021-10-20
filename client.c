@@ -39,7 +39,7 @@ int main(int argc, char const *argv[])
     }
 
 
-    char * req  = "./testfiles/lipsum1.txt\n";
+    char * req  = "./testfiles/lipsum15.txt\n";
     char * req2 = "./testfiles/lipsum2.txt\n";
 
 
@@ -70,7 +70,7 @@ int main(int argc, char const *argv[])
     dataLen = 0;
     
     write(fd_skt, req2, strlen(req2));
-
+/*
     printf("\n\nRICHIESTA 2 DI FILE: %s \n\n======== \n", req);
     
     while((bytes_read = (recv(fd_skt, buf, sizeof(buf), 0))) > 0){
@@ -81,7 +81,7 @@ int main(int argc, char const *argv[])
     }
 
     printf("\nRECEIVED: %s\n" , buf);
-
+*/
 
     close(fd_skt);
     

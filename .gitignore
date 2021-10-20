@@ -7,7 +7,7 @@ testfiles/
 
 #visual studio code
 .vscode/
-
+vgcore.*
 
 #Eventuali socket dimenticate
 *.sock

@@ -7,7 +7,7 @@ s = UNIXSocket.new("/home/francesco/Documenti/Unipi/Sistemi Operativi/Progetto/f
 s.write("./testfiles/#{ARGV[0]}.txt\n")
 
 s.each_line do |line| 
-	#puts line
+	#	puts line
 end
 
 s.close

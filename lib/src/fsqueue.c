@@ -1,8 +1,17 @@
 
 #include <stdlib.h>
+#include <stdio.h>
 #include "../fsqueue.h"
 
+void print_queue(node_t ** head){
+   node_t * curr = * head;
 
+   while (curr != NULL)
+   {
+      fprintf(stderr, "%d", curr->val);
+      curr = curr->next;
+   }
+}
 
 void enqueue(node_t ** head, int val) {
    node_t *new_node = malloc(sizeof(node_t));
