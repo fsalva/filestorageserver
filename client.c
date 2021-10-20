@@ -39,10 +39,12 @@ int main(int argc, char const *argv[])
     }
 
 
-    char * req  = "./testfiles/lipsum15.txt\n";
-    char * req2 = "./testfiles/lipsum2.txt\n";
+    char * req  = "/tmp/TESTFILES/lipsum15.txt\n";
+    char * killmsg = "\r\n\r\n";
 
+    char * req2 = "/tmp/TESTFILES/lipsum1.txt\n";
 
+int letti = 0;
     memset(buf, 0, BUF_SIZE);
 
 
@@ -51,10 +53,7 @@ int main(int argc, char const *argv[])
 
     size_t bytes_read;
     size_t dataLen = 0;
-    
-
-    printf("\n\nRICHIESTA 1 DI FILE: %s \n\n======== \n", req);
-    
+        
     while((bytes_read = (recv(fd_skt, buf, sizeof(buf), 0))) > 0){
 
         dataLen += bytes_read;
@@ -62,14 +61,27 @@ int main(int argc, char const *argv[])
         if( buf[dataLen] == '\000' || dataLen > (BUF_SIZE-1)) break;
     }
 
-    printf("\nRECEIVED: %s\n" , buf);
+    letti += dataLen;
+
+    write(fd_skt, req2, strlen(req2));
+    //write(fd_skt, req, strlen(killmsg));
+
+     while((bytes_read = (recv(fd_skt, buf, sizeof(buf), 0))) > 0){
+
+        dataLen += bytes_read;
+
+        if( buf[dataLen] == '\000' || dataLen > (BUF_SIZE-1)) break;
+    }
+
+    letti += dataLen;
+
+    printf("[+] RECEIVED: %d bytes.\n", letti);
 
         
     memset(buf, 0, BUF_SIZE);
     
     dataLen = 0;
     
-    write(fd_skt, req2, strlen(req2));
 /*
     printf("\n\nRICHIESTA 2 DI FILE: %s \n\n======== \n", req);
     

@@ -39,6 +39,8 @@ int keepRunning = 1;
 int handledSuccessfully = 0;
 
 int s_socket = -1;
+int server_socket;  //-- Fd su cui si connettono i client.
+
 
 /* Queue */
 node_t * read_queue = NULL;
@@ -115,103 +117,26 @@ void intHandler() {
     exit(0);
 }
 
+void start_server();
+int shut_server();
+void loop_server();
+void destroy_threads();
 
 int main(int argc, char const *argv[])
 {
+    
+    if(argc > 0) {if(argv[0] == NULL) {} }  //--    ignorami :) 
+
     signal(SIGINT, intHandler);
     signal(SIGPIPE, SIG_IGN);
 
-    //Creo la mia thread pool di workers. 
-    for (int i = 0; i < THREAD_POOL_SIZE; i++)
-    {
-        pthread_create(&thread_pool[i], NULL, thread_function, NULL);
-    } 
+    start_server(); 
 
-    for (int i = 0; i < 1024; i++)
-    {
-        socket_array[i].used = 0;
-    }
+    parse_configuration(&configuration_parsed); //-- Parsing della configurazione.      
     
-    
-    //Creo il mio thread "monitor"
-    //pthread_create(&monitor_thread, NULL, monitor_function, NULL);
+    loop_server(); //-- Main thread si blocca sulle connessioni in ingresso e distribuisce i task ai thread workers. 
 
-    /* Variabili per la server socket */
-    int server_socket;
-    SA sockaddr;
-
-    //TODO: Rimuovere il warning.
-    if(argc > 0) {if(argv[0] == NULL) {} }
-
-    #ifdef config
-    
-    /**
-     * Esegue il parsing della configurazione del server, e lo 
-     * restituisce nella struttura dati sopra. 
-     */
-    parse_configuration(&configuration_parsed);    
-    
-    #endif
-     
-    if (( server_socket = socket(AF_UNIX, SOCK_STREAM, 0 )) < 0) //Creo una socket.
-        perror("Errore nella creazione della socket: ");
-    
-    sockaddr.sun_family = AF_UNIX;
-    strncpy(sockaddr.sun_path, SOCKNAME, UNIX_PATH_MAX);
-
-    if((bind(server_socket, (struct sockaddr *) &sockaddr, sizeof(sockaddr))) < 0)    //Binding della socket all'indirizzo.
-        perror("Errore durante il binding: ");
-
-    if((listen(server_socket, SERVER_QUEUE)) < 0)  //Si mette in ascolto.
-        perror("Errore durante l'ascolto della socket: ");
-
-    s_socket = server_socket;
-
-    pthread_cond_signal(&ssset_cond_var);
-
-
-    //Entro nel loop del server.
-    //TODO: condizione d'uscita per spegnere tutto ordinatamente.  
-
-    printf("\nAttendo connessioni... \n");        
-    
-    //Dichiaro gli interest set da monitorare. 
-    fd_set rd_set, cr_set;
-
-    struct timeval timeout = {1,0};
-
-
-    int client_socket;
-    
-    while (1)
-    {
-
-        client_socket = accept(s_socket, NULL, 0);
-        fprintf(stderr, "\n[👋] Connessione in arrivo sul fd: %d! ", client_socket);
-        if(client_socket == -1) perror("Accept(): ");
-
-                        
-               
-        // -- è un client pronto ad inviare dati
-
-        fprintf(stderr, "\n[📬] Client %d ha una richiesta! ", client_socket);
-
-        int * p_client = malloc(sizeof(int));   // -- creo un puntatore al fd per passarlo alla coda. 
-        * p_client = client_socket;
-
-        //Ottengo la lock sulla coda
-        Pthread_mutex_lock(&rd_mtx);
-        //Inserisco la socket del client nella lista
-        enqueue(&read_queue, * p_client);
-        //Segnalo ad un thread l'arrivo di un task
-        pthread_cond_signal(&read_cond_var);
-        //Sblocco la coda.
-        Pthread_mutex_unlock(&rd_mtx);    
-    }
-
-    printf("Chiudo!");
-    unlink(SOCKNAME);
-    return 0;
+    return shut_server();
 }
 
 static void parse_configuration (struct configuration_t * obj){
@@ -291,97 +216,121 @@ if ((fptr = fopen(CONFIG_PATH ,"r")) == NULL){
  */
 void * connection_handler (void* p_client_socket) {
     
+    int close_connection_flag = 0;
+
     int client_socket =  * ((int*)p_client_socket); 
     free(p_client_socket);  // -- corrisponde alla malloc in thread_function
-
-    FILE *fp = NULL;
+    FILE *fp; 
     char buff[MAXLINE+1];
-    char * path = NULL; 
-    size_t bytes_read = -1;
-    size_t dataLen = 0; 
-    
-    //Azzero il buffer.
-    memset(buff, 0 , MAXLINE);  
+    char * path;; 
+    int bytes_read;
+    size_t dataLen; 
 
-    /**
-     * Leggo il messaggio del client sulla socket, tengo traccia della quantità di byte rimasti da leggere, 
-     * in caso il messaggio sia più lungo della dimensione del buffer.
-     */
-    
-    while ((bytes_read = read(client_socket, buff + dataLen, sizeof(buff) - dataLen - 1)) > 0) {
-        dataLen += bytes_read;
-        //Se esco dai limiti del buffer o leggo un 'a capo' esco dal ciclo.  
-        if(buff[dataLen - 1] == '\n' || dataLen > (MAXLINE-1)) break;
-    }
-
-    buff[dataLen-1] = 0;
-
-    if((int) bytes_read == -1){ // -- Errore in lettura (Socket da chiudere).
-        shutdown(client_socket, SHUT_RDWR);
-        perror("Read: ");            
-        return NULL;
-
-    } else { 
-        /**
-         * Se mi mandano un path sbagliato fallisce, 
-         * e chiude la connessione
-         */
-        if( (path = (realpath(buff, NULL))) == NULL){ 
-            shutdown(client_socket, SHUT_RDWR);
-            perror("RealPath: ");
-            return NULL;
-        }
+    while(!close_connection_flag){
+        
+        fp = NULL;
+        path = NULL;
+        bytes_read = 0;
+        dataLen = 0;
+        
+        //Azzero il buffer.
+        memset(buff, 0 , MAXLINE);  
 
         /**
-         * Come sopra. 
-         * Se fallisce chiudo tutto.
-         */
-
-
-        fp = fopen(path, "r");
-        if (fp == NULL) { 
-            perror("Errore nell'apertura del file: "); 
-            return NULL;
-        } 
-
-        /**
-         * Tieni traccia del numero di bytes letti fino a questo momento, poiche' 
-         * se il file da inviare è più grande della dimensione del buffer lo invia in più mandate.
-         * Il client --> DEVE <-- mantenere la connessione aperta abbastanza a lungo per riceverlo tutto,
-         * altrimenti la write invoca un'eccezione per via della pipe rotta. 
+         * Leggo il messaggio del client sulla socket, tengo traccia della quantità di byte rimasti da leggere, 
+         * in caso il messaggio sia più lungo della dimensione del buffer.
          */
         
-        int n;
+        while (!close_connection_flag && (bytes_read = read(client_socket, buff + dataLen, sizeof(buff) - dataLen - 1)) >= 0) {
+            dataLen += bytes_read;
+            //Se esco dai limiti del buffer o leggo un 'a capo' esco dal ciclo.  
+            if(buff[dataLen - 1] == '\n' || dataLen > (MAXLINE-1)) break;
 
-        while((bytes_read = fread(buff, sizeof(char), BUFSIZE, fp)) > 0)
-        {
-            printf("Invio %zu bytes.\n", bytes_read);
-            fflush(stdout);
-            
-            
-            if((n =  write(client_socket, buff, bytes_read)) <= 0){
-                perror("[-] Write: ");
-                //Ignoro SIGPIPE e chiudo manualmente le connessioni lato server.
+            if(bytes_read == 0 || bytes_read == -1 ) {close_connection_flag = 1; fprintf(stderr, "[X] Chiudo la socket! %d", client_socket);
+}
+        }
+
+        if(!close_connection_flag){
+            buff[dataLen-1] = 0;
+
+            if((int) bytes_read == -1){ // -- Errore in lettura (Socket da chiudere).
+                shutdown(client_socket, SHUT_RDWR);
+                perror("Read: ");            
+                break;
+
+            } else { 
+                /**
+                 * Se mi mandano un path sbagliato fallisce, 
+                 * e chiude la connessione
+                 */
+                if( (path = (realpath(buff, NULL))) == NULL){ 
+                    shutdown(client_socket, SHUT_RDWR);
+                    perror("RealPath: ");
+                    break;
+                }
+
+                /**
+                 * Come sopra. 
+                 * Se fallisce chiudo tutto.
+                 */
+
+
+                fp = fopen(path, "r");
+                if (fp == NULL) { 
+                    perror("Errore nell'apertura del file: "); 
+                    break;
+                } 
+
+                /**
+                 * Tieni traccia del numero di bytes letti fino a questo momento, poiche' 
+                 * se il file da inviare è più grande della dimensione del buffer lo invia in più mandate.
+                 * Il client --> DEVE <-- mantenere la connessione aperta abbastanza a lungo per riceverlo tutto,
+                 * altrimenti la write invoca un'eccezione per via della pipe rotta. 
+                 */
+                
+                int n;
+
+                while((bytes_read = fread(buff, sizeof(char), BUFSIZE, fp)) > 0)
+                {
+                    printf("Invio %d bytes.\n", bytes_read);
+                    fflush(stdout);
+                    
+                    
+                    if((n =  write(client_socket, buff, bytes_read)) <= 0){
+                        perror("[-] Write: ");
+                        //Ignoro SIGPIPE e chiudo manualmente le connessioni lato server.
+                        break;
+                    }
+                }
+
+                
+                
+                //Chiudo il file (TODO: va modificato per leggere in memoria, non da file system!)
+                fclose(fp);
+
+                //Libero la memoria usata per il path
+                free(path);
+                
+                Pthread_mutex_lock(&ctr_mtx);
+                handledSuccessfully++;
+                Pthread_mutex_unlock(&ctr_mtx);
             }
+
+        
         }
+        else break;
 
-        close(client_socket);
-        
-        //Chiudo il file (TODO: va modificato per leggere in memoria, non da file system!)
-        fclose(fp);
-
-        //Libero la memoria usata per il path
-        free(path);
-        
-        Pthread_mutex_lock(&ctr_mtx);
-        handledSuccessfully++;
-        Pthread_mutex_unlock(&ctr_mtx);
     }
+
+    
+    fprintf(stderr, "[X] Chiudo la socket! %d", client_socket);
+    close(client_socket);
+    client_socket = -1;
+    pthread_cond_signal(&read_cond_var);    //-- Segnalo ad un thread l'arrivo di un task
+
 
     return NULL;
 }
-
-
 
 /**
  * @brief Funzione che viene passata ai thread di default alla creazione.
@@ -394,7 +343,6 @@ void * thread_function( void __attribute((unused)) * arg){
     //TODO: Aggiungere cond. di terminazione.
     while (1)
     {   
-
         int client; // -- numero fd socket
         int * p_client = malloc(sizeof(int)); // -- mantengo un puntatore per passarlo all'handler. 
 
@@ -425,3 +373,73 @@ void * thread_function( void __attribute((unused)) * arg){
     }
 }
 
+/**
+ * @brief   Procedura per far partire il server.
+ *          Crea una threadpool e si occupa del binding della socket.
+ * 
+ * @return ** void 
+ */
+void start_server(){
+
+    SA sockaddr;        //-- struct per la socket 
+
+    //Creo la mia thread pool di workers. 
+    for (int i = 0; i < THREAD_POOL_SIZE; i++)
+    {
+        pthread_create(&thread_pool[i], NULL, thread_function, NULL);
+    } 
+
+    
+    if (( server_socket = socket(AF_UNIX, SOCK_STREAM, 0 )) < 0) //-- Creo la socket server.
+        perror("Errore nella creazione della socket: ");
+    
+    sockaddr.sun_family = AF_UNIX;
+    strncpy(sockaddr.sun_path, SOCKNAME, UNIX_PATH_MAX);
+
+    if((bind(server_socket, (struct sockaddr *) &sockaddr, sizeof(sockaddr))) < 0)  //-- Binding della socket all'indirizzo.
+        perror("Errore durante il binding: ");
+
+    if((listen(server_socket, SERVER_QUEUE)) < 0)  //-- Si mette in ascolto - Il server ha un backlog di 100 connessioni. 
+        perror("Errore durante l'ascolto della socket: ");
+
+}
+
+void loop_server(){
+    
+    int client_socket;
+    
+    while (1)
+    {
+        client_socket = accept(server_socket, NULL, 0);                                      //-- Si blocca sulla accept.
+        fprintf(stderr, "\n[👋] Connessione in arrivo sul fd: %d! ", client_socket);    //-- e' arrivato una connessione (si sblocca)!
+        
+        if(client_socket == -1) perror("Accept(): ");                                   //-- errore di connessione.
+        else{
+            fprintf(stderr, "\n[📬] Client %d ha una richiesta! ", client_socket);
+
+            int * p_client = malloc(sizeof(int));   // -- creo un puntatore al fd per passarlo alla coda. 
+            * p_client = client_socket;
+
+            Pthread_mutex_lock(&rd_mtx);            //-- Ottengo la lock sulla coda
+            enqueue(&read_queue, * p_client);       //-- Inserisco la socket del client nella lista
+            print_queue(&read_queue);
+            pthread_cond_signal(&read_cond_var);    //-- Segnalo ad un thread l'arrivo di un task
+            Pthread_mutex_unlock(&rd_mtx);          //-- Sblocco la coda.
+        }
+
+    }
+}
+
+int shut_server(){
+    printf("Chiudo!");
+    unlink(SOCKNAME);
+    return 0;
+}
+
+void destroy_threads(){
+    for (int i = 0; i < THREAD_POOL_SIZE; i++)
+    {
+        
+    }
+    
+}
