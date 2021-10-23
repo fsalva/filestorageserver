@@ -292,7 +292,7 @@ void * connection_handler (void* p_client_socket) {
 
                 while((bytes_read = fread(buff, sizeof(char), BUFSIZE, fp)) > 0)
                 {
-                    printf("Invio %d bytes.\n", bytes_read);
+                    printf("\n[🛫]Invio %d bytes.\n", bytes_read);
                     fflush(stdout);
                     
                     
@@ -302,8 +302,8 @@ void * connection_handler (void* p_client_socket) {
                         break;
                     }
                 }
-
                 
+                fprintf(stderr, "\n[x] EOF\n");
                 
                 //Chiudo il file (TODO: va modificato per leggere in memoria, non da file system!)
                 fclose(fp);
@@ -415,8 +415,6 @@ void loop_server(){
         
         if(client_socket == -1) perror("Accept(): ");                                   //-- errore di connessione.
         else{
-            fprintf(stderr, "\n[📬] Client %d ha una richiesta! ", client_socket);
-
             int * p_client = malloc(sizeof(int));   // -- creo un puntatore al fd per passarlo alla coda. 
             * p_client = client_socket;
 
