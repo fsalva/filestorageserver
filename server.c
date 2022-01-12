@@ -104,7 +104,6 @@ static void Pthread_mutex_unlock ( pthread_mutex_t *mtx)
 
 
 static void parse_configuration (struct configuration_t *);
-
 void * connection_handler(void *);
 void * thread_function(void *);
 void * monitor_function(void *);
@@ -263,11 +262,13 @@ void * connection_handler (void* p_client_socket) {
                  * Se mi mandano un path sbagliato fallisce, 
                  * e chiude la connessione
                  */
+                fprintf(stderr, buff);
                 if( (path = (realpath(buff, NULL))) == NULL){ 
                     shutdown(client_socket, SHUT_RDWR);
                     perror("RealPath: ");
                     break;
                 }
+
 
                 /**
                  * Come sopra. 
@@ -420,7 +421,7 @@ void loop_server(){
 
             Pthread_mutex_lock(&rd_mtx);            //-- Ottengo la lock sulla coda
             enqueue(&read_queue, * p_client);       //-- Inserisco la socket del client nella lista
-            print_queue(&read_queue);
+            //print_queue(&read_queue);
             pthread_cond_signal(&read_cond_var);    //-- Segnalo ad un thread l'arrivo di un task
             Pthread_mutex_unlock(&rd_mtx);          //-- Sblocco la coda.
         }

@@ -1,0 +1,15 @@
+% Numero di thread worker del server.
+% Commento multi-riga
+% :)
+%
+
+THREAD_WORKERS = 4
+
+% Dimensione massima della memoria dedicata al server (Megabytes).
+MAX_DIM = 100M 
+
+% Massimo numero di files da salvare su memoria del server. 
+MAX_FILES = 100
+
+% Path per la socket: 
+SOCKET_NAME = "./socket/l.sock"
