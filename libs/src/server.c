@@ -2,8 +2,10 @@
 #include "../queue.h"
 #include "../const.h"
 
+#include<stdint.h>
 #include<stdio.h>
 #include<stdlib.h>
+#include<string.h>
 #include<unistd.h>
 #include <errno.h>
 
@@ -14,18 +16,21 @@
 #include <sys/un.h>
 #include <sys/time.h>
 
-static pthread_mutex_t sk_mtx = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t rd_mtx = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t ctr_mtx = PTHREAD_MUTEX_INITIALIZER;
-static pthread_mutex_t td_mtx = PTHREAD_MUTEX_INITIALIZER;
-
-static pthread_cond_t read_cond_var = PTHREAD_COND_INITIALIZER;
-static pthread_cond_t ssset_cond_var = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t sk_mtx = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t rd_mtx = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t ctr_mtx = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t td_mtx = PTHREAD_MUTEX_INITIALIZER;pthread_cond_t read_cond_var = PTHREAD_COND_INITIALIZER;
+pthread_cond_t ssset_cond_var = PTHREAD_COND_INITIALIZER;
 
 pthread_t thread_pool;
 
 node_t * read_queue = NULL;
 node_t * td_sockets = NULL;
+
+int server_socket;  //-- Fd su cui si connettono i client.
+
+void * thread_function( void __attribute((unused)) * arg);
+
 
 /**
  * @brief Gestione dei task lato server.
@@ -34,7 +39,7 @@ node_t * td_sockets = NULL;
  * @return void* 
  */
 void * connection_handler(void * p_client_socket) {
-
+    return NULL;
 }
 
 /**
@@ -43,7 +48,7 @@ void * connection_handler(void * p_client_socket) {
  * @param mtx 
  * @return ** void 
  */
-static void Pthread_mutex_lock ( pthread_mutex_t *mtx)
+void Pthread_mutex_lock ( pthread_mutex_t *mtx)
 {
     int err; 
     if( ( err = pthread_mutex_lock(mtx) != 0)){
@@ -61,7 +66,7 @@ static void Pthread_mutex_lock ( pthread_mutex_t *mtx)
  * @param mtx 
  * @return ** void 
  */
-static void Pthread_mutex_unlock ( pthread_mutex_t *mtx)
+void Pthread_mutex_unlock ( pthread_mutex_t *mtx)
 {
     int err; 
     if( ( err = pthread_mutex_unlock(mtx) != 0)){
@@ -98,7 +103,7 @@ int start_server(int workers_n, int mem_size, int files_n, char * sock_name){
     ptr = malloc(sizeof(pthread_t)*workers_n);
     for(int i = 0; i < workers_n; i++)
     {
-        pthread_create(&ptr[i], NULL, thread_funtion, (void*)&index[i]);
+        pthread_create(&ptr[i], NULL, thread_function, (void*)&index[i]);
     }
 
     if (( server_socket = socket(AF_UNIX, SOCK_STREAM, 0 )) < 0) //-- Creo la socket server.

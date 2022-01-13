@@ -1,3 +1,5 @@
+#define  _GNU_SOURCE
+
 #include "../config_parser.h"
 
 #include<stdio.h>
@@ -17,7 +19,7 @@ int parse(config_parser * cp){
 
     char * line = NULL; // -> righe nel file
     size_t len = 0;     // lunghezza di ogni riga
-    ssize_t l_read;     // linee lette
+    size_t l_read;     // linee lette
     
     //  chiave : valore
     char * key = NULL;
@@ -30,7 +32,7 @@ int parse(config_parser * cp){
     }
 
     // legge riga per riga il file
-    while (l_read = getline(&line, &len, fptr) != -1)
+    while ((l_read = getline(&line, &len, fptr)) != -1)
     {
         if (line[0] == '%' ||   // è un commento
             strcmp(line, "\n") == 0 || strcmp(line, "\r\n") == 0) // è uno spazio
@@ -96,5 +98,5 @@ void remove_spaces(char* s) {
         while (*d == ' ') {
             ++d;
         }
-    } while (*s++ = *d++);
+    } while ((*s++ = *d++) != 0);
 }

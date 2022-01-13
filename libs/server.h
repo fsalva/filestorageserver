@@ -33,7 +33,7 @@ extern int stop_server();
 extern void loop_server();
 extern void cleanup();
 
-static void Pthread_mutex_lock(pthread_mutex_t *);
-static void Pthread_mutex_unlock(pthread_mutex_t *);
+void Pthread_mutex_lock(pthread_mutex_t *);
+void Pthread_mutex_unlock(pthread_mutex_t *);
 
 #endif
