@@ -5,7 +5,9 @@
 
 THREAD_WORKERS = 4
 
-% Dimensione massima della memoria dedicata al server (Megabytes).
+% Dimensione massima della memoria dedicata al server.
+% Formato = {dimensione (int)}{ordine di grandezza (* bytes)}
+
 MAX_DIM = 100M 
 
 % Massimo numero di files da salvare su memoria del server. 
