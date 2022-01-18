@@ -30,7 +30,7 @@ node_t * td_sockets = NULL;
 int server_socket;  //-- Fd su cui si connettono i client.
 
 void * thread_function( void __attribute((unused)) * arg);
-
+void clean_server(pthread_t *, int, int*);
 
 /**
  * @brief Gestione dei task lato server.
@@ -86,10 +86,11 @@ void Pthread_mutex_unlock ( pthread_mutex_t *mtx)
  * @param workers_n numero di thread da creare (config)
  * @param mem_size dimensione massima della memoria (config)
  * @param files_n numero di files da salvare al massimo (config)
+ * @param sock_name path alla socket (config)
  * @return int che rappresenta il risultato dell'operazione (successo / fail)
  */
 int start_server(int workers_n, int mem_size, int files_n, char * sock_name){
-    
+
     SA sockaddr;
     int * index;
     pthread_t * ptr;
@@ -107,24 +108,49 @@ int start_server(int workers_n, int mem_size, int files_n, char * sock_name){
     }
 
     if (( server_socket = socket(AF_UNIX, SOCK_STREAM, 0 )) < 0) //-- Creo la socket server.
-        perror("Errore nella creazione della socket: ");
-    
+    {
+        perror("[error]\t[start_server]:\tErrore nella creazione della socket: ");
+        clean_server(ptr, workers_n, index);
+        return -1;
+    }
+
     sockaddr.sun_family = AF_UNIX;
     strncpy(sockaddr.sun_path, sock_name, UNIX_PATH_MAX);
 
+    fprintf(stderr, "Sockaddr.sun_family = %d \n sock_name =  %s", sockaddr.sun_family, sockaddr.sun_path);
+
     if((bind(server_socket, (struct sockaddr *) &sockaddr, sizeof(sockaddr))) < 0)  //-- Binding della socket all'indirizzo.
-        perror("Errore durante il binding: ");
+    {
+        perror("[error]\t[start_server]:\tErrore durante il binding: ");
+        clean_server(ptr, workers_n, index);
+        return -1;
+    }
 
     if((listen(server_socket, SERVER_QUEUE)) < 0)  //-- Si mette in ascolto - Il server ha un backlog di 100 connessioni. 
-        perror("Errore durante l'ascolto della socket: ");
+    {
+        perror("[error]\t[start_server]:\tErrore durante l'ascolto della socket:: ");
+        clean_server(ptr, workers_n, index);
+        return -1;
+    }
 
+
+    
+    
+    return 0;
+
+}
+
+void clean_server(pthread_t * ptr, int workers_n, int * index){
+
+    fprintf(stderr, "[info]\t[clean_server]: Ripulendo.");
 
     for (int i = 0; i < workers_n; i++)
     {
-        pthread_join(ptr[i], NULL);
+        free((pthread_t *) ptr[i]);
     }
     
-    return 0;
+    free(ptr);
+    free(index);
 
 }
 
