@@ -397,6 +397,7 @@ void start_server(){
     sockaddr.sun_family = AF_UNIX;
     strncpy(sockaddr.sun_path, SOCKNAME, UNIX_PATH_MAX);
 
+
     if((bind(server_socket, (struct sockaddr *) &sockaddr, sizeof(sockaddr))) < 0)  //-- Binding della socket all'indirizzo.
         perror("Errore durante il binding: ");
 

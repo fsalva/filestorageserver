@@ -3,7 +3,7 @@
 for N in {1..100}
 
 do
-	./client -f ./socket/l.sock -R /tmp/TESTFILES/lipsum1.txt,/tmp/TESTFILES/lipsum2.txt,/tmp/TESTFILES/lipsum3.txt &
+	./client -f ./socket/l.sock -R /tmp/LIPSUM/randfile001.txt,/tmp/LIPSUM/randfile003.txt,/tmp/LIPSUM/randfile005.txt &
 done
 
 

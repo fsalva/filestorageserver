@@ -33,8 +33,8 @@ int main(int argc, char const *argv[])
     int flags, opt;
     int nsecs, tfnd;
 
-    char * req  = "/tmp/TESTFILES/lipsum15.txt\n";
-    char * req2 = "/tmp/TESTFILES/lipsum1.txt\n";
+    char * req  = "/tmp/LIPSUM/randfile001\n";
+    char * req2 = "/tmp/LIPSUM/randfile005\n";
     char * avalue = NULL;
     
     char *socket_n; //-- path alla server socket

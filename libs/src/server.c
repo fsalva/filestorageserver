@@ -8,6 +8,8 @@
 #include<string.h>
 #include<unistd.h>
 #include <errno.h>
+// -- testing --
+#include <dirent.h>
 
 #include<pthread.h>
 
@@ -16,21 +18,25 @@
 #include <sys/un.h>
 #include <sys/time.h>
 
-pthread_mutex_t sk_mtx = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t rd_mtx = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t ctr_mtx = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t td_mtx = PTHREAD_MUTEX_INITIALIZER;pthread_cond_t read_cond_var = PTHREAD_COND_INITIALIZER;
-pthread_cond_t ssset_cond_var = PTHREAD_COND_INITIALIZER;
+#define UNIX_PATH_MAX 108
 
-pthread_t thread_pool;
 
-node_t * read_queue = NULL;
-node_t * td_sockets = NULL;
+int                 server_socket;  //-- Fd su cui si connettono i client.
 
-int server_socket;  //-- Fd su cui si connettono i client.
+node_t *            read_queue = NULL;
+node_t *            td_sockets = NULL;
 
-void * thread_function( void __attribute((unused)) * arg);
-void clean_server(pthread_t *, int, int*);
+pthread_t           thread_pool;
+
+pthread_mutex_t     sk_mtx = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t     rd_mtx = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t     ctr_mtx = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t     td_mtx = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t      read_cond_var = PTHREAD_COND_INITIALIZER;
+pthread_cond_t      ssset_cond_var = PTHREAD_COND_INITIALIZER;
+
+void *              thread_function( void __attribute((unused)) * arg);
+void                clean_server(pthread_t *, int, int*);
 
 /**
  * @brief Gestione dei task lato server.
@@ -91,9 +97,11 @@ void Pthread_mutex_unlock ( pthread_mutex_t *mtx)
  */
 int start_server(int workers_n, int mem_size, int files_n, char * sock_name){
 
-    SA sockaddr;
-    int * index;
-    pthread_t * ptr;
+    SA              sockaddr;
+    int *           index;
+    pthread_t *     ptr;
+
+    
 
     index = calloc (workers_n, sizeof (int));
     for(int i = 0; i < workers_n; i++)
@@ -107,29 +115,32 @@ int start_server(int workers_n, int mem_size, int files_n, char * sock_name){
         pthread_create(&ptr[i], NULL, thread_function, (void*)&index[i]);
     }
 
-    if (( server_socket = socket(AF_UNIX, SOCK_STREAM, 0 )) < 0) //-- Creo la socket server.
+    if (( server_socket = socket(AF_UNIX, SOCK_STREAM, 0)) < 0) //-- Creo la socket server.
     {
         perror("[error]\t[start_server]:\tErrore nella creazione della socket: ");
-        clean_server(ptr, workers_n, index);
         return -1;
     }
-
+    
+    
+    // Azzero la struttura.
+    memset(&sockaddr, 0, sizeof(struct sockaddr_un));
     sockaddr.sun_family = AF_UNIX;
     strncpy(sockaddr.sun_path, sock_name, UNIX_PATH_MAX);
 
-    fprintf(stderr, "Sockaddr.sun_family = %d \n sock_name =  %s", sockaddr.sun_family, sockaddr.sun_path);
 
-    if((bind(server_socket, (struct sockaddr *) &sockaddr, sizeof(sockaddr))) < 0)  //-- Binding della socket all'indirizzo.
+    // -- testing --
+    int error;
+
+    if((error = (bind(server_socket, (struct sockaddr *) &sockaddr, sizeof(sockaddr)))) < 0)  //-- Binding della socket all'indirizzo.
     {
-        perror("[error]\t[start_server]:\tErrore durante il binding: ");
-        clean_server(ptr, workers_n, index);
+        fprintf(stderr, "\n\nERRCODE: %d\n\nAvevo socket fd : %d", error, server_socket);
+        perror("[error]\t[start_server]:\tErrore durante il binding ");
         return -1;
     }
 
     if((listen(server_socket, SERVER_QUEUE)) < 0)  //-- Si mette in ascolto - Il server ha un backlog di 100 connessioni. 
     {
         perror("[error]\t[start_server]:\tErrore durante l'ascolto della socket:: ");
-        clean_server(ptr, workers_n, index);
         return -1;
     }
 
@@ -142,7 +153,7 @@ int start_server(int workers_n, int mem_size, int files_n, char * sock_name){
 
 void clean_server(pthread_t * ptr, int workers_n, int * index){
 
-    fprintf(stderr, "[info]\t[clean_server]: Ripulendo.");
+    fprintf(stderr, "[info]\t[clean_server]: Libero spazio");
 
     for (int i = 0; i < workers_n; i++)
     {
@@ -186,5 +197,29 @@ void * thread_function( void __attribute((unused)) * arg){
             //ed eseguo il lavoro.
             connection_handler(p_client);
         }
+    }
+    
+}
+
+void loop_server(){
+    
+    int client_socket;
+    
+    while (1)
+    {
+        client_socket = accept(server_socket, NULL, 0);                                 //-- Si blocca sulla accept.
+        fprintf(stderr, "\n[👋] Connessione in arrivo sul fd: %d! ", client_socket);    //-- e' arrivato una connessione (si sblocca)!
+        
+        if (client_socket == -1) perror("Accept(): ");                                   //-- errore di connessione.
+        else {
+            int * p_client = malloc(sizeof(int));   // -- creo un puntatore al fd per passarlo alla coda. 
+            * p_client = client_socket;
+
+            Pthread_mutex_lock(&rd_mtx);            //-- Ottengo la lock sulla coda
+            enqueue(&read_queue, * p_client);       //-- Inserisco la socket del client nella lista
+            pthread_cond_signal(&read_cond_var);    //-- Segnalo ad un thread l'arrivo di un task
+            Pthread_mutex_unlock(&rd_mtx);          //-- Sblocco la coda.
+        }
+
     }
 }
