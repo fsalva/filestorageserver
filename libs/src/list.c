@@ -2,11 +2,12 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdbool.h>
-#include "../fslist.h"
+#include "../list.h"
 
 
 elem_t *head = NULL; 
 elem_t *current = NULL;
+
 
 //display the list
 void printList() {

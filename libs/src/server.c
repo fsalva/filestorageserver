@@ -7,9 +7,7 @@
 #include<stdlib.h>
 #include<string.h>
 #include<unistd.h>
-#include <errno.h>
-// -- testing --
-#include <dirent.h>
+#include<errno.h>
 
 #include<pthread.h>
 
@@ -84,6 +82,16 @@ void Pthread_mutex_unlock ( pthread_mutex_t *mtx)
     //Unlocked! 
 }
 
+void trim(char * s) {
+    char * p = s;
+    int l = strlen(p);
+
+    while(isspace(p[l - 1])) p[--l] = 0;
+    while(* p && isspace(* p)) ++p, --l;
+
+    memmove(s, p, l + 1);
+} 
+
 /**
  * @brief Avvio del server 
  * -    creazione thread worker
@@ -125,7 +133,16 @@ int start_server(int workers_n, int mem_size, int files_n, char * sock_name){
     // Azzero la struttura.
     memset(&sockaddr, 0, sizeof(struct sockaddr_un));
     sockaddr.sun_family = AF_UNIX;
-    strncpy(sockaddr.sun_path, sock_name, UNIX_PATH_MAX);
+    trim(sock_name);  //    Necessario per evitare il bug dei caratteri aggiunti ('$'\n).
+    strncpy(sockaddr.sun_path, sock_name, strlen(sock_name));
+
+    
+    
+    if( access( sockaddr.sun_path, F_OK ) == 0 ) {
+        fprintf(stderr, "%s esiste", sockaddr.sun_path);
+    } else {
+        fprintf(stderr, "%s non esiste", sockaddr.sun_path);
+    }
 
 
     // -- testing --
@@ -143,10 +160,13 @@ int start_server(int workers_n, int mem_size, int files_n, char * sock_name){
         perror("[error]\t[start_server]:\tErrore durante l'ascolto della socket:: ");
         return -1;
     }
-
-
     
-    
+    if( access( sockaddr.sun_path, F_OK ) == 0 ) {
+        fprintf(stderr, "\nesiste");
+    } else {
+        fprintf(stderr, "\nnon esiste");
+    }
+
     return 0;
 
 }
@@ -222,4 +242,6 @@ void loop_server(){
         }
 
     }
+
 }
+

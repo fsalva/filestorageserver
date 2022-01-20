@@ -12,8 +12,7 @@
 #include <signal.h>
 #include <pthread.h>
 #include <limits.h>
-#include "./lib/fsstring.h"
-#include "./lib/constvalues.h"
+#include "./libs/constvalues.h"
 
 #define BUF_SIZE 4096
 
@@ -33,8 +32,8 @@ int main(int argc, char const *argv[])
     int flags, opt;
     int nsecs, tfnd;
 
-    char * req  = "/tmp/LIPSUM/randfile001\n";
-    char * req2 = "/tmp/LIPSUM/randfile005\n";
+    char * req  = "/tmp/LIPSUM/randfile001.txt\n";
+    char * req2 = "/tmp/LIPSUM/randfile005.txt\n";
     char * avalue = NULL;
     
     char *socket_n; //-- path alla server socket
@@ -80,9 +79,6 @@ int main(int argc, char const *argv[])
     openConnection(socket_n, 100, x);
 
     send_request(c_pid, opcode, arguments);
-
-    
-
     
     //closeConnection();    
     
@@ -91,22 +87,28 @@ int main(int argc, char const *argv[])
     exit(EXIT_SUCCESS);
 
 }
-    
-
 
 int openConnection(const char * sockname, int msec, const struct timespec abst){
 
-    //Nome socket. --> "./socket/l.sock"
     char * socketName = sockname;
-
     struct sockaddr_un sa;
 
+    memset(&sa, 0, sizeof(struct sockaddr_un));
     strncpy(sa.sun_path, socketName, 108);
     sa.sun_family=AF_UNIX;
 
-    fd_skt = socket(AF_UNIX,SOCK_STREAM,0);
+    fd_skt = socket(AF_UNIX, SOCK_STREAM, 0);
 
-    if(connect(fd_skt, (struct sockaddr *) &sa, sizeof(sa)) == -1){
+    fprintf(stderr, "\n\n[i]\tMi connetto su: %s, dim: %d\n", sa.sun_path, strlen(sa.sun_path));
+
+    if( access( sa.sun_path, F_OK ) == 0 ) {
+        fprintf(stderr, "%s esiste", sa.sun_path);
+    } else {
+        fprintf(stderr, "%s non esiste", sa.sun_path);
+    }
+
+
+    if(connect(fd_skt, (struct sockaddr *) &sa, sizeof(sa)) < 0){
             perror("[-] Errore in connessione: ");
             exit(EXIT_FAILURE);
     }   else fprintf(stderr, "[+] Connesso.\n");
@@ -190,7 +192,6 @@ void send_request(int pid, char opt, char ** arguments){
 
             printf("[PID: %d][+] RECEIVED: %d bytes.\n",getpid(), letti);
 
-
             //------------------
 
             free(*(arguments + i));
@@ -207,22 +208,69 @@ void print_usage(const char * argv[]){
 
     printf("usage:  %s  -option [-option ...]\n"
        "Lista delle opzioni:\n"
-       "    -h                  :   Stampa questo messaggio.\n\n"
-       "    -f filename         :   Specifica il nome della socket a cui connettersi.\n\n"
+       "    -h                  :   Stampa questo messaggio.\n"
+       "    -f filename         :   Specifica il nome della socket a cui connettersi.\n"
        "    -w dirname[,n=0]    :   Invia al server n file contenuti nella cartella 'dirname',\n"
-       "                        :   se n = 0, li invia tutti.\n\n"
-       "    -W file_1[,file_2]  :   Invia al server i file per essere scritti.\n\n"
+       "                        :   se n = 0, li invia tutti.\n"
+       "    -W file_1[,file_2]  :   Invia al server i file per essere scritti.\n"
        "    -D dirname          :   Specifica della cartella lato client su cui salvare i file\n"
-       "                        :   espulsi dal server. [Richiede opzioni -w o -W]\n\n"
-       "    -r file_1[,file_2]  :   Lista di file da leggere dal server.\n\n"
-       "    -R [n=0]            :   Legge n file qualsiasi dal server; Se n = 0 li legge tutti.\n\n"
+       "                        :   espulsi dal server. [Richiede opzioni -w o -W]\n"
+       "    -r file_1[,file_2]  :   Lista di file da leggere dal server.\n"
+       "    -R [n=0]            :   Legge n file qualsiasi dal server; Se n = 0 li legge tutti.\n"
        "    -d dirname          :   Specifica della cartella dove salvare i file letti dal server. \n"
-       "                        :   espulsi dal server. [Richiede opzioni -r o -R]\n\n"
-       "    -t time             :   Tempo [msec] tra una richiesta e la successiva.\n\n"
-       "    -l file_1[,file_2]  :   Lista di nomi di file su cui acquisire mutex. \n\n"
-       "    -u file_1[,file_2]  :   Lista di nomi di file su cui rilascaire mutex. \n\n"
-       "    -c file_1[,file_2]  :   Lista di nomi di file da rimuovere dal server. \n\n"
-       "    -p                  :   Abilita le stampe su stdout per ogni operazione.\n\n"
+       "    -t time             :   Tempo [msec] tra una richiesta e la successiva.\n"
+       "    -l file_1[,file_2]  :   Lista di nomi di file su cui acquisire mutex. \n"
+       "    -u file_1[,file_2]  :   Lista di nomi di file su cui rilascaire mutex. \n"
+       "    -c file_1[,file_2]  :   Lista di nomi di file da rimuovere dal server. \n"
+       "    -p                  :   Abilita le stampe su stdout per ogni operazione.\n"
        , argv[0]);
 }
 
+
+char** str_split(char* a_str, const char a_delim)
+{
+    char** result    = 0;
+    size_t count     = 0;
+    char* tmp        = a_str;
+    char* last_comma = 0;
+    char delim[2];
+    delim[0] = a_delim;
+    delim[1] = 0;
+
+    /* Count how many elements will be extracted. */
+    while (*tmp)
+    {
+        if (a_delim == *tmp)
+        {
+            count++;
+            last_comma = tmp;
+        }
+        tmp++;
+    }
+
+    /* Add space for trailing token. */
+    count += last_comma < (a_str + strlen(a_str) - 1);
+
+    /* Add space for terminating null string so caller
+       knows where the list of returned strings ends. */
+    count++;
+
+    result = malloc(sizeof(char*) * count);
+
+    if (result)
+    {
+        size_t idx  = 0;
+        char* token = strtok(a_str, delim);
+
+        while (token)
+        {
+            assert(idx < count);
+            *(result + idx++) = strdup(token);
+            token = strtok(0, delim);
+        }
+        assert(idx == count - 1);
+        *(result + idx) = 0;
+    }
+
+    return result;
+}

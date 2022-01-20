@@ -2,13 +2,14 @@ CC = gcc
 CFLAGS = -Wall -Wextra -pedantic -lpthread
 LIBCFLAGS = -c -std=c99 -Wall
 objects = filestorageserver.o 
+
 LIBPATH = -I./libs/
 OUTPATH = ./libs/out
 SRCPATH = ./libs/src
 ARTIPATH = ./libs/artifact
 DEPS = ./libs/artifact/libutils.a
 
-all: filestorageserver
+all: filestorageserver	client
 
 filestorageserver: $(objects) $(DEPS)
 	$(CC) $(CFLAGS) $(LIBPATH) -o $@ $^ 
@@ -22,7 +23,10 @@ $(DEPS): $(SRCPATH)/*
 	@for f in $(shell ls ${SRCPATH}); do mv $${f%%.*}.o $(OUTPATH) ; done 
 	@echo "[3/4] Creo l'archivio per le librerie. "
 	-ar -rvs $(DEPS) $(OUTPATH)/*
-	
+
+client: client.o $(DEPS)
+	$(CC) $(CFLAGS) $(LIBPATH) -o $@ $^ 
+
 
 .PHONY : clean
 clean: 

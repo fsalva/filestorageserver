@@ -10,7 +10,6 @@ THREAD_WORKERS = 20
 %
 
 MAX_DIM = 100M 
-
 %
 % Massimo numero di files da salvare su memoria del server. 
 %
@@ -21,4 +20,4 @@ MAX_FILES = 100
 % Path per la socket: 
 %
 
-SOCKET_NAME = ./socket/l.sock
+SOCKET_NAME = ./socket/sockett

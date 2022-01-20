@@ -1,5 +1,5 @@
 typedef struct elem {
    int key;
    int data;
-   struct elem_t *next;
+   struct elem *next;
 } elem_t;
