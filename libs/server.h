@@ -21,6 +21,7 @@
 #include<sys/types.h>
 
 extern int server_socket; // fd su cui si connettono i client.
+extern int handledSuccessfully;
 
 extern void * connection_handler(void *);
 extern void * thread_funtion(void *);

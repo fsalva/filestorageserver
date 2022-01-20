@@ -18,6 +18,7 @@
 char * s_n;
 
 void intHandler() {
+    fprintf(stdout, " \n\n HANDLED %d connections!!! ", handledSuccessfully);
     fflush(stdout);
     unlink(s_n);
     exit(0);

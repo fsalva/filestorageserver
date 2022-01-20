@@ -13,6 +13,7 @@
 #include <pthread.h>
 #include <limits.h>
 #include "./libs/constvalues.h"
+#include "./libs/stringutils.h"
 
 #define BUF_SIZE 4096
 

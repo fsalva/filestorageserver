@@ -1,6 +1,7 @@
 #include "../server.h"
 #include "../queue.h"
 #include "../const.h"
+#include "../stringutils.h"
 
 #include<stdint.h>
 #include<stdio.h>
@@ -20,7 +21,7 @@
 
 
 int                 server_socket;  //-- Fd su cui si connettono i client.
-
+                    handledSuccessfully = 0;
 node_t *            read_queue = NULL;
 node_t *            td_sockets = NULL;
 
@@ -43,7 +44,126 @@ void                clean_server(pthread_t *, int, int*);
  * @return void* 
  */
 void * connection_handler(void * p_client_socket) {
+    
+    
+    int close_connection_flag = 0;
+
+    int client_socket =  * ((int*)p_client_socket); 
+    free(p_client_socket);  // -- corrisponde alla malloc in thread_function
+    FILE *fp; 
+    char buff[MAXLINE+1];
+    char * path;; 
+    int bytes_read;
+    size_t dataLen; 
+
+    while(!close_connection_flag){
+        
+        fp = NULL;
+        path = NULL;
+        bytes_read = 0;
+        dataLen = 0;
+        
+        //Azzero il buffer.
+        memset(buff, 0 , MAXLINE);  
+
+        /**
+         * Leggo il messaggio del client sulla socket, tengo traccia della quantità di byte rimasti da leggere, 
+         * in caso il messaggio sia più lungo della dimensione del buffer.
+         */
+        
+        while (!close_connection_flag && (bytes_read = read(client_socket, buff + dataLen, sizeof(buff) - dataLen - 1)) >= 0) {
+            dataLen += bytes_read;
+            //Se esco dai limiti del buffer o leggo un 'a capo' esco dal ciclo.  
+            if(buff[dataLen - 1] == '\n' || dataLen > (MAXLINE-1)) break;
+
+            if(bytes_read == 0 || bytes_read == -1 ) {close_connection_flag = 1; fprintf(stderr, "[X] Chiudo la socket! %d", client_socket);
+}
+        }
+
+        if(!close_connection_flag){
+            buff[dataLen-1] = 0;
+
+            if((int) bytes_read == -1){ // -- Errore in lettura (Socket da chiudere).
+                shutdown(client_socket, SHUT_RDWR);
+                perror("Read: ");            
+                break;
+
+            } else { 
+                /**
+                 * Se mi mandano un path sbagliato fallisce, 
+                 * e chiude la connessione
+                 */
+                fprintf(stderr, buff);
+                if( (path = (realpath(buff, NULL))) == NULL){ 
+                    shutdown(client_socket, SHUT_RDWR);
+                    perror("RealPath: ");
+                    break;
+                }
+
+
+                /**
+                 * Come sopra. 
+                 * Se fallisce chiudo tutto.
+                 */
+
+
+                fp = fopen(path, "r");
+                if (fp == NULL) { 
+                    perror("Errore nell'apertura del file: "); 
+                    break;
+                } 
+
+                /**
+                 * Tieni traccia del numero di bytes letti fino a questo momento, poiche' 
+                 * se il file da inviare è più grande della dimensione del buffer lo invia in più mandate.
+                 * Il client --> DEVE <-- mantenere la connessione aperta abbastanza a lungo per riceverlo tutto,
+                 * altrimenti la write invoca un'eccezione per via della pipe rotta. 
+                 */
+                
+                int n;
+
+                while((bytes_read = fread(buff, sizeof(char), BUFSIZE, fp)) > 0)
+                {
+                    printf("\n[🛫]Invio %d bytes.\n", bytes_read);
+                    fflush(stdout);
+                    
+                    
+                    if((n =  write(client_socket, buff, bytes_read)) <= 0){
+                        perror("[-] Write: ");
+                        //Ignoro SIGPIPE e chiudo manualmente le connessioni lato server.
+                        break;
+                    }
+                }
+                
+                fprintf(stderr, "\n[x] EOF\n");
+                
+                //Chiudo il file (TODO: va modificato per leggere in memoria, non da file system!)
+                fclose(fp);
+
+                //Libero la memoria usata per il path
+                free(path);
+                
+                Pthread_mutex_lock(&ctr_mtx);
+                fprintf(stderr, "\n🍅");
+                handledSuccessfully++;
+                Pthread_mutex_unlock(&ctr_mtx);
+            }
+
+        
+        }
+        else break;
+
+    }
+
+    
+    fprintf(stderr, "[X] Chiudo la socket! %d", client_socket);
+    close(client_socket);
+    client_socket = -1;
+    pthread_cond_signal(&read_cond_var);    //-- Segnalo ad un thread l'arrivo di un task
+
+
     return NULL;
+
 }
 
 /**
@@ -82,16 +202,6 @@ void Pthread_mutex_unlock ( pthread_mutex_t *mtx)
     //Unlocked! 
 }
 
-void trim(char * s) {
-    char * p = s;
-    int l = strlen(p);
-
-    while(isspace(p[l - 1])) p[--l] = 0;
-    while(* p && isspace(* p)) ++p, --l;
-
-    memmove(s, p, l + 1);
-} 
-
 /**
  * @brief Avvio del server 
  * -    creazione thread worker
@@ -129,21 +239,11 @@ int start_server(int workers_n, int mem_size, int files_n, char * sock_name){
         return -1;
     }
     
-    
     // Azzero la struttura.
     memset(&sockaddr, 0, sizeof(struct sockaddr_un));
     sockaddr.sun_family = AF_UNIX;
     trim(sock_name);  //    Necessario per evitare il bug dei caratteri aggiunti ('$'\n).
     strncpy(sockaddr.sun_path, sock_name, strlen(sock_name));
-
-    
-    
-    if( access( sockaddr.sun_path, F_OK ) == 0 ) {
-        fprintf(stderr, "%s esiste", sockaddr.sun_path);
-    } else {
-        fprintf(stderr, "%s non esiste", sockaddr.sun_path);
-    }
-
 
     // -- testing --
     int error;
@@ -161,14 +261,7 @@ int start_server(int workers_n, int mem_size, int files_n, char * sock_name){
         return -1;
     }
     
-    if( access( sockaddr.sun_path, F_OK ) == 0 ) {
-        fprintf(stderr, "\nesiste");
-    } else {
-        fprintf(stderr, "\nnon esiste");
-    }
-
     return 0;
-
 }
 
 void clean_server(pthread_t * ptr, int workers_n, int * index){

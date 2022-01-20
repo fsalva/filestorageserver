@@ -20,4 +20,4 @@ MAX_FILES = 100
 % Path per la socket: 
 %
 
-SOCKET_NAME = ./socket/sockett
+SOCKET_NAME = ./socket/l.sock
