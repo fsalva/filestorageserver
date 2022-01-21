@@ -27,9 +27,7 @@ void intHandler() {
 
 int main(int argc, char const *argv[])
 {   
-    config_parser *     cp;
-    icl_hash_t *        hashtable;
-    
+    config_parser *     cp;    
     if(argc > 0) {if(argv[0] == NULL) {} }  //--    ignorami :) 
     
     
@@ -48,21 +46,7 @@ int main(int argc, char const *argv[])
 
     signal(SIGINT, intHandler);
     signal(SIGPIPE, SIG_IGN);
-
-    hashtable = icl_hash_create(8, hash_pjw, string_compare);
-
-    icl_hash_insert(hashtable, "shit", "fuck");
-    icl_hash_insert(hashtable, "shit", "test");
-    icl_hash_insert(hashtable, "test", "test");
-    icl_hash_insert(hashtable, "test", "fuck");
-
-    icl_hash_dump(stderr, hashtable);
-    void * x = icl_hash_find(hashtable, "test");
-    void * y = icl_hash_find(hashtable, "shit");
-    void * z = icl_hash_find(hashtable, "fuck");
-
     
-    fprintf(stderr, "%s %s %s", (char *) x, (char *) y, (char *) z);
 
     loop_server();
 

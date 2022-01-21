@@ -3,6 +3,9 @@
 #include "../const.h"
 #include "../stringutils.h"
 #include "../request.h"
+#include "../prettyprint.h"
+#include "../supported_operations.h"
+#include "../icl_hash.h"
 
 #include<stdint.h>
 #include<stdio.h>
@@ -21,8 +24,7 @@
 #define UNIX_PATH_MAX 108
 
 
-int                 server_socket;  //-- Fd su cui si connettono i client.
-                    handledSuccessfully = 0;
+                
 node_t *            read_queue = NULL;
 node_t *            td_sockets = NULL;
 
@@ -35,8 +37,12 @@ pthread_mutex_t     td_mtx = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t      read_cond_var = PTHREAD_COND_INITIALIZER;
 pthread_cond_t      ssset_cond_var = PTHREAD_COND_INITIALIZER;
 
+icl_hash_t *        hashtable;
+
+
 void *              thread_function( void __attribute((unused)) * arg);
 void                clean_server(pthread_t *, int, int*);
+
 
 /**
  * @brief Gestione dei task lato server.
@@ -45,7 +51,6 @@ void                clean_server(pthread_t *, int, int*);
  * @return void* 
  */
 void * connection_handler(void * p_client_socket) {
-    
     
     int         close_connection_flag = 0;
     int         client_socket;
@@ -63,20 +68,20 @@ void * connection_handler(void * p_client_socket) {
     client_socket = * ((int*)p_client_socket); 
     free(p_client_socket);  // -- corrisponde alla malloc in thread_function
     
+
     //Azzero il buffer.
     memset(buff, 0 , MAXLINE);
 
     while(!close_connection_flag){
-        
+
         fp = NULL;
         path = NULL;
         bytes_read = 0;
         dataLen = 0;
-        
 
         /**
          * Leggo il messaggio del client sulla socket, tengo traccia della quantità di byte rimasti da leggere, 
-         * in caso il messaggio sia più lungo della dimensione del buffer.
+         * in caso il messaggio di richiesta sia più lungo della dimensione del buffer.
          */
         
         while (!close_connection_flag && (bytes_read = read(client_socket, buff + dataLen, sizeof(buff) - dataLen - 1)) >= 0) {
@@ -84,10 +89,11 @@ void * connection_handler(void * p_client_socket) {
             //Se esco dai limiti del buffer o leggo un 'a capo' esco dal ciclo.  
             if(buff[dataLen - 1] == '\n' || dataLen > (MAXLINE-1)) break;
 
-            if(bytes_read == 0 || bytes_read == -1 ) {close_connection_flag = 1; fprintf(stderr, "[X] Chiudo la socket! %d", client_socket);}
+            if(bytes_read == 0 || bytes_read == -1 ) {close_connection_flag = 1;}
         }
 
         if(!close_connection_flag){
+
             buff[dataLen-1] = 0;
 
             if((int) bytes_read == -1){ // -- Errore in lettura (Socket da chiudere).
@@ -95,84 +101,89 @@ void * connection_handler(void * p_client_socket) {
                 perror("Read: ");            
                 break;
 
-            } else { 
-                //fprintf(stderr, buff);
+            } else {    // Lettura avvenuta correttamente. 
 
                 req = parse_request(buff);
 
-
-                /**
-                 * Se mi mandano un path sbagliato fallisce, 
-                 * e chiude la connessione
-                 
-                path = malloc(sizeof(char) * strlen(req->r_path));
-                
-                if( (path = (realpath(req->r_path, NULL))) == NULL){ 
-                    shutdown(client_socket, SHUT_RDWR);
-                    perror("RealPath:");
-                    break;
-                }
-                */
-
-                //fprintf(stderr, "\nPath: {%s}", path);
-
-                /**
-                 * Come sopra. 
-                 * Se fallisce chiudo tutto.
-                 */
-
-
-                fp = fopen(req->r_path, "r");
-                if (fp == NULL) { 
-                    perror("Errore nell'apertura del file: "); 
-                    break;
-                } 
-                fprintf(stderr, "\n\tOperation code: %ld \n\tRequester PID: %ld\n\tRequest Path: [%s]\n", req->r_op_code, req->r_pid, req->r_path);
-
-                /**
-                 * Tieni traccia del numero di bytes letti fino a questo momento, poiche' 
-                 * se il file da inviare è più grande della dimensione del buffer lo invia in più mandate.
-                 * Il client --> DEVE <-- mantenere la connessione aperta abbastanza a lungo per riceverlo tutto,
-                 * altrimenti la write invoca un'eccezione per via della pipe rotta. 
-                 */
-                
-                int n;
-
-                while((bytes_read = fread(buff, sizeof(char), BUFSIZE, fp)) > 0)
+                switch (req->r_op_code)
                 {
-                    printf("\n[🛫]Invio %d bytes.\n", bytes_read);
-                    fflush(stdout);
+                case OP_READ_FILE:
+
+                    /**
+                     * Se mi mandano un path sbagliato fallisce, 
+                     * e chiude la connessione
+                     
+                    path = malloc(sizeof(char) * strlen(req->r_path));
                     
-                    
-                    if((n =  write(client_socket, buff, bytes_read)) <= 0){
-                        perror("[-] Write: ");
-                        //Ignoro SIGPIPE e chiudo manualmente le connessioni lato server.
+                    if( (path = (realpath(req->r_path, NULL))) == NULL){ 
+                        shutdown(client_socket, SHUT_RDWR);
+                        perror("RealPath:");
                         break;
                     }
+                    */
+
+                    //fprintf(stderr, "\nPath: {%s}", path);
+
+                    /**
+                     * Come sopra. 
+                     * Se fallisce chiudo tutto.
+                     */
+
+
+                    fp = fopen(req->r_path, "r");
+                    if (fp == NULL) { 
+                        perror("Errore nell'apertura del file: "); 
+                        break;
+                    } 
+                    //fprintf(stderr, "\n\tOperation code: %ld \n\tRequester PID: %ld\n\tRequest Path: [%s]\n", req->r_op_code, req->r_pid, req->r_path);
+
+                    /**
+                     * Tieni traccia del numero di bytes letti fino a questo momento, poiche' 
+                     * se il file da inviare è più grande della dimensione del buffer lo invia in più mandate.
+                     * Il client --> DEVE <-- mantenere la connessione aperta abbastanza a lungo per riceverlo tutto,
+                     * altrimenti la write invoca un'eccezione per via della pipe rotta. 
+                     */
+                    
+                    int n;
+                    
+                    printf("\n[🛫]Invio il file al client: %d.\n", client_socket);
+
+                    while((bytes_read = fread(buff, sizeof(char), BUFSIZE, fp)) > 0)
+                    {
+                        //fflush(stdout);
+                        
+                        
+                        if((n =  write(client_socket, buff, bytes_read)) <= 0){
+                            perror("[-] Write: ");
+                            //Ignoro SIGPIPE e chiudo manualmente le connessioni lato server.
+                            break;
+                        }
+                    }
+
+                    write(client_socket, "\000", sizeof("\000"));
+                    
+                    
+                    //Chiudo il file (TODO: va modificato per leggere in memoria, non da file system!)
+                    fclose(fp);
+
+                    //Libero la memoria usata per il path
+                    free(path);
+                    
+                    Pthread_mutex_lock(&ctr_mtx);
+                    handledSuccessfully++;
+                    Pthread_mutex_unlock(&ctr_mtx);
+                    break;
+
+                case OP_WRITE_FILES:
+                    write_file(req->r_path, req->r_pid, client_socket, hashtable);
+                    break;
+
+                default:
+                    break;
                 }
-
-                write(client_socket, "\000", sizeof("\000"));
-                
-                fprintf(stderr, "\n[x] EOF\n");
-                
-                //Chiudo il file (TODO: va modificato per leggere in memoria, non da file system!)
-                fclose(fp);
-
-                //Libero la memoria usata per il path
-                free(path);
-                
-                Pthread_mutex_lock(&ctr_mtx);
-                fprintf(stderr, "\n🍅");
-                handledSuccessfully++;
-                Pthread_mutex_unlock(&ctr_mtx);
-
-
             }
-
-        
         }
         else break;
-
     }
 
     
@@ -239,7 +250,9 @@ int start_server(int workers_n, int mem_size, int files_n, char * sock_name){
     int *           index;
     pthread_t *     ptr;
 
-    
+    hashtable = icl_hash_create(16, hash_pjw, string_compare);
+
+    handledSuccessfully = 0;
 
     index = calloc (workers_n, sizeof (int));
     for(int i = 0; i < workers_n; i++)
@@ -300,7 +313,6 @@ void clean_server(pthread_t * ptr, int workers_n, int * index){
 
 void * thread_function( void __attribute((unused)) * arg){
 
-    //TODO: Aggiungere cond. di terminazione.
     while (1)
     {   
         int client; // -- numero fd socket
@@ -341,7 +353,7 @@ void loop_server(){
     while (1)
     {
         client_socket = accept(server_socket, NULL, 0);                                 //-- Si blocca sulla accept.
-        fprintf(stderr, "\n[👋] Connessione in arrivo sul fd: %d! ", client_socket);    //-- e' arrivato una connessione (si sblocca)!
+        //fprintf(stderr, "\n[👋] Connessione in arrivo sul fd: %d! ", client_socket);    //-- e' arrivato una connessione (si sblocca)!
         
         if (client_socket == -1) perror("Accept(): ");                                   //-- errore di connessione.
         else {

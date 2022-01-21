@@ -12,6 +12,7 @@
 #include <signal.h>
 #include <pthread.h>
 #include <limits.h>
+
 #include "./libs/constvalues.h"
 #include "./libs/stringutils.h"
 
@@ -30,27 +31,24 @@ int fd_skt, fd_c;
 
 int main(int argc, char const *argv[])
 {
-    int flags, opt;
-    int nsecs, tfnd;
+    int         flags, opt;
+    int         nsecs, tfnd;
+    int         opcode;
+    int         c_pid;
 
-    char * req  = "/tmp/LIPSUM/randfile001.txt\n";
-    char * req2 = "/tmp/LIPSUM/randfile005.txt\n";
-    char * avalue = NULL;
+    char *      avalue = NULL;    
+    char *      socket_n; //-- path alla server socket
+    char **     arguments;
     
-    char *socket_n; //-- path alla server socket
-    char ** arguments;
-    int opcode;
-
-    int c_pid = getpid();
-
     nsecs = 0;
     tfnd = 0;
     flags = 0;
 
+    c_pid = getpid();
+    
     const struct timespec x = {1, 0};
 
-
-    while ((opt = getopt(argc, argv, "hf:wWDr:R:dtlucp")) != -1) 
+    while ((opt = getopt(argc, argv, "hf:w:WDr:R:dtlucp")) != -1) 
     {
         switch (opt) 
         {
@@ -61,6 +59,11 @@ int main(int argc, char const *argv[])
         case 'r':
             arguments = str_split(optarg, (char) ',');
             opcode = OP_READ_FILE;
+            break;
+        
+        case 'w':
+            arguments = str_split(optarg, (char) ',');
+            opcode = OP_WRITE_FILES;
             break;
         
         case 'h':
@@ -78,6 +81,8 @@ int main(int argc, char const *argv[])
     }
 
     openConnection(socket_n, 100, x);
+
+    fprintf(stderr, "\nOPCODE: %d, ARGUMENTS: %s\n", opcode, arguments[0]);
 
     send_request(c_pid, opcode, arguments);
     

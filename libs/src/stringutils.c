@@ -2,7 +2,10 @@
 #define STRING_H_UTILS_FILESTORAGE
 
 #include<stdio.h>
-#include "../stringutils.h";
+#include<string.h>
+#include<ctype.h>
+
+#include "../stringutils.h"
 
 void trim(char * s) {
     char * p = s;
