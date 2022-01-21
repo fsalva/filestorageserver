@@ -2,6 +2,7 @@
 #include "../queue.h"
 #include "../const.h"
 #include "../stringutils.h"
+#include "../request.h"
 
 #include<stdint.h>
 #include<stdio.h>
@@ -46,16 +47,22 @@ void                clean_server(pthread_t *, int, int*);
 void * connection_handler(void * p_client_socket) {
     
     
-    int close_connection_flag = 0;
+    int         close_connection_flag = 0;
+    int         client_socket;
+    int         bytes_read;
 
-    int client_socket =  * ((int*)p_client_socket); 
+    char        buff[MAXLINE+1];
+    char *      path;; 
+    
+    FILE *      fp; 
+    size_t      dataLen;
+    
+    request * req = NULL; 
+
+
+    client_socket = * ((int*)p_client_socket); 
     free(p_client_socket);  // -- corrisponde alla malloc in thread_function
-    FILE *fp; 
-    char buff[MAXLINE+1];
-    char * path;; 
-    int bytes_read;
-    size_t dataLen; 
-
+    
     while(!close_connection_flag){
         
         fp = NULL;
@@ -76,8 +83,7 @@ void * connection_handler(void * p_client_socket) {
             //Se esco dai limiti del buffer o leggo un 'a capo' esco dal ciclo.  
             if(buff[dataLen - 1] == '\n' || dataLen > (MAXLINE-1)) break;
 
-            if(bytes_read == 0 || bytes_read == -1 ) {close_connection_flag = 1; fprintf(stderr, "[X] Chiudo la socket! %d", client_socket);
-}
+            if(bytes_read == 0 || bytes_read == -1 ) {close_connection_flag = 1; fprintf(stderr, "[X] Chiudo la socket! %d", client_socket);}
         }
 
         if(!close_connection_flag){
@@ -89,17 +95,25 @@ void * connection_handler(void * p_client_socket) {
                 break;
 
             } else { 
+                //fprintf(stderr, buff);
+
+                req = parse_request(buff);
+
+
                 /**
                  * Se mi mandano un path sbagliato fallisce, 
                  * e chiude la connessione
-                 */
-                fprintf(stderr, buff);
-                if( (path = (realpath(buff, NULL))) == NULL){ 
+                 
+                path = malloc(sizeof(char) * strlen(req->r_path));
+                
+                if( (path = (realpath(req->r_path, NULL))) == NULL){ 
                     shutdown(client_socket, SHUT_RDWR);
-                    perror("RealPath: ");
+                    perror("RealPath:");
                     break;
                 }
+                */
 
+                //fprintf(stderr, "\nPath: {%s}", path);
 
                 /**
                  * Come sopra. 
@@ -107,11 +121,12 @@ void * connection_handler(void * p_client_socket) {
                  */
 
 
-                fp = fopen(path, "r");
+                fp = fopen(req->r_path, "r");
                 if (fp == NULL) { 
                     perror("Errore nell'apertura del file: "); 
                     break;
                 } 
+                fprintf(stderr, "\n\tOperation code: %ld \n\tRequester PID: %ld\n\tRequest Path: [%s]\n", req->r_op_code, req->r_pid, req->r_path);
 
                 /**
                  * Tieni traccia del numero di bytes letti fino a questo momento, poiche' 
@@ -147,6 +162,8 @@ void * connection_handler(void * p_client_socket) {
                 fprintf(stderr, "\n🍅");
                 handledSuccessfully++;
                 Pthread_mutex_unlock(&ctr_mtx);
+
+                close_connection_flag = 1;
             }
 
         
@@ -156,7 +173,7 @@ void * connection_handler(void * p_client_socket) {
     }
 
     
-    fprintf(stderr, "[X] Chiudo la socket! %d", client_socket);
+    //fprintf(stderr, "[X] Chiudo la socket! %d", client_socket);
     close(client_socket);
     client_socket = -1;
     pthread_cond_signal(&read_cond_var);    //-- Segnalo ad un thread l'arrivo di un task
