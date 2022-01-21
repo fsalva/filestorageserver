@@ -63,6 +63,9 @@ void * connection_handler(void * p_client_socket) {
     client_socket = * ((int*)p_client_socket); 
     free(p_client_socket);  // -- corrisponde alla malloc in thread_function
     
+    //Azzero il buffer.
+    memset(buff, 0 , MAXLINE);
+
     while(!close_connection_flag){
         
         fp = NULL;
@@ -70,8 +73,6 @@ void * connection_handler(void * p_client_socket) {
         bytes_read = 0;
         dataLen = 0;
         
-        //Azzero il buffer.
-        memset(buff, 0 , MAXLINE);  
 
         /**
          * Leggo il messaggio del client sulla socket, tengo traccia della quantità di byte rimasti da leggere, 
@@ -149,6 +150,8 @@ void * connection_handler(void * p_client_socket) {
                         break;
                     }
                 }
+
+                write(client_socket, "\000", sizeof("\000"));
                 
                 fprintf(stderr, "\n[x] EOF\n");
                 
@@ -163,7 +166,7 @@ void * connection_handler(void * p_client_socket) {
                 handledSuccessfully++;
                 Pthread_mutex_unlock(&ctr_mtx);
 
-                close_connection_flag = 1;
+
             }
 
         

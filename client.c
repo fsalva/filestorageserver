@@ -176,8 +176,11 @@ void send_request(int pid, char opt, char ** arguments){
 
             size_t bytes_read;
             size_t dataLen = 0;
-                
+            
+
             while((bytes_read = (recv(fd_skt, buf, sizeof(buf), 0))) >= 0){
+            
+            //fprintf(stderr, "STO RICEVENDO NEL BUFF %d BYTES", letti);
 
                 dataLen += bytes_read;
                 
