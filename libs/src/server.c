@@ -89,7 +89,6 @@ void * connection_handler(void * p_client_socket) {
 
             if(bytes_read == 0 || bytes_read == -1 ) {close_connection_flag = 1;}
 
-            print_debug(buff, 1);
         }
 
         if(!close_connection_flag){

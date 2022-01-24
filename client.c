@@ -138,7 +138,7 @@ void send_request(int pid, char opt, char ** arguments){
     char *      request = NULL;
     char        buf[BUF_SIZE];
 
-    size_t bytes_read;
+    ssize_t bytes_read;
     size_t dataLen;
 
     if(arguments){
@@ -162,7 +162,7 @@ void send_request(int pid, char opt, char ** arguments){
             
             // TODO: 
             // Per ora fa una conta dei bytes ricevuti in risposta.
-            while((bytes_read = (recv(fd_skt, buf, sizeof(buf), 0)) >= 0)){
+            while((bytes_read = recv(fd_skt, buf, sizeof(buf), 0)) >= 0){
             
                 dataLen += bytes_read;
                 
