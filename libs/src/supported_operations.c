@@ -77,6 +77,7 @@ int write_file(char * path, int c_pid, int c_socket, icl_hash_t * t){
     icl_hash_insert(t, path, content);
 
     fclose(fp);
+    
 
     fprintf(stderr, "\nFatto, eh");
 

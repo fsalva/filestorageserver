@@ -15,6 +15,8 @@
 
 #include "./libs/constvalues.h"
 #include "./libs/stringutils.h"
+#include "./libs/clientapi.h"
+#include "./libs/prettyprint.h"
 
 #define BUF_SIZE 4096
 
@@ -29,24 +31,20 @@ char** str_split(char* a_str, const char a_delim);
 
 int fd_skt, fd_c; 
 
-int main(int argc, char const *argv[])
+
+int main(int argc, char * const argv[])
 {
-    int         flags, opt;
-    int         nsecs, tfnd;
+    int         opt;
     int         opcode;
     int         c_pid;
 
-    char *      avalue = NULL;    
     char *      socket_n; //-- path alla server socket
     char **     arguments;
-    
-    nsecs = 0;
-    tfnd = 0;
-    flags = 0;
 
     c_pid = getpid();
     
-    const struct timespec x = {1, 0};
+
+    const struct timespec x = {5, 0};
 
     while ((opt = getopt(argc, argv, "hf:w:WDr:R:dtlucp")) != -1) 
     {
@@ -80,46 +78,23 @@ int main(int argc, char const *argv[])
         }
     }
 
-    openConnection(socket_n, 100, x);
-
-    fprintf(stderr, "\nOPCODE: %d, ARGUMENTS: %s\n", opcode, arguments[0]);
-
-    send_request(c_pid, opcode, arguments);
-    
-    //closeConnection();    
-    
-    close(fd_skt);
-
-    exit(EXIT_SUCCESS);
-
-}
-
-int openConnection(const char * sockname, int msec, const struct timespec abst){
-
-    char * socketName = sockname;
-    struct sockaddr_un sa;
-
-    memset(&sa, 0, sizeof(struct sockaddr_un));
-    strncpy(sa.sun_path, socketName, 108);
-    sa.sun_family=AF_UNIX;
-
-    fd_skt = socket(AF_UNIX, SOCK_STREAM, 0);
-
-    fprintf(stderr, "\n\n[i]\tMi connetto su: %s, dim: %d\n", sa.sun_path, strlen(sa.sun_path));
-
-    if( access( sa.sun_path, F_OK ) == 0 ) {
-        fprintf(stderr, "%s esiste", sa.sun_path);
-    } else {
-        fprintf(stderr, "%s non esiste", sa.sun_path);
+    if( (fd_skt = (openConnection(socket_n, 100, x))) < 0){
+        print_debug("Errore durante connessione con il server. Timeout.\n", 1);
     }
+    else {
+        fprintf(stderr, "\nConnesso alla socket: %d", fd_skt);
+        fprintf(stderr, "\n[OPCODE]: %d, [ARGUMENTS]: %s\n", opcode, arguments[0]);
 
+        send_request(c_pid, opcode, arguments);
+        
+        close(fd_skt);
 
-    if(connect(fd_skt, (struct sockaddr *) &sa, sizeof(sa)) < 0){
-            perror("[-] Errore in connessione: ");
-            exit(EXIT_FAILURE);
-    }   else fprintf(stderr, "[+] Connesso.\n");
+        exit(EXIT_SUCCESS);
+
+    }
     
-    return 0;
+    exit(EXIT_FAILURE);
+
 }
 
 int closeConnection(const char * sockname){
@@ -137,12 +112,13 @@ char * format_request(char* request_body, int opt, int pid){
 
     char pid_str[sizeof(int) + 2];
     sprintf(pid_str, "%d", pid);
-
+    
     /**
      * [OPCODE]#[pid]#[request body] 
      * 
      * Segue ^ questo modello per formattare le richieste. 
     */
+
     strcpy(fn, op_str);
     strcat(fn, "#");
 
@@ -151,42 +127,43 @@ char * format_request(char* request_body, int opt, int pid){
 
     strcat(fn, request_body);
     strcat(fn, "#\n");
-
-    
-
-    fprintf(stderr, fn);
     
     return fn;
 }
 
 void send_request(int pid, char opt, char ** arguments){
-    
+
+    int         i;
+    int         letti;
+    char *      request = NULL;
+    char        buf[BUF_SIZE];
+
+    size_t bytes_read;
+    size_t dataLen;
+
     if(arguments){
-        int i;
-        char * request = NULL;
 
+        // Per ogni argomento della richiesta: 
         for (i = 0; *(arguments + i); i++)
-        {
+        {   
+            // Formattalo in una singola richiesta: 
             request = format_request(*(arguments + i), opt, pid);
+            
+            print_debug(request, 1);
 
-            //Invia la richiesta. 
-             int letti = 0;
-
-            char buf[BUF_SIZE];
+            letti = 0;  // quantita' di bytes ricevuti / richiesta.
             
             memset(buf, 0, BUF_SIZE);
             
-            //invia sulla socket.
+            // Ed invialo sulla socket.
             write(fd_skt, request, strlen(request));
 
-            size_t bytes_read;
-            size_t dataLen = 0;
+            dataLen = 0;    // quantità di bytes ricevuti / buffer
             
-
-            while((bytes_read = (recv(fd_skt, buf, sizeof(buf), 0))) >= 0){
+            // TODO: 
+            // Per ora fa una conta dei bytes ricevuti in risposta.
+            while((bytes_read = (recv(fd_skt, buf, sizeof(buf), 0)) >= 0)){
             
-            //fprintf(stderr, "STO RICEVENDO NEL BUFF %d BYTES", letti);
-
                 dataLen += bytes_read;
                 
                 if(dataLen > (BUF_SIZE-1)){
@@ -200,8 +177,6 @@ void send_request(int pid, char opt, char ** arguments){
             letti += dataLen;
 
             printf("[PID: %d][+] RECEIVED: %d bytes.\n",getpid(), letti);
-
-            //------------------
 
             free(*(arguments + i));
         }

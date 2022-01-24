@@ -6,6 +6,7 @@
 #include "../prettyprint.h"
 #include "../supported_operations.h"
 #include "../icl_hash.h"
+#include "../constvalues.h"
 
 #include<stdint.h>
 #include<stdio.h>
@@ -22,8 +23,6 @@
 #include <sys/time.h>
 
 #define UNIX_PATH_MAX 108
-
-
                 
 node_t *            read_queue = NULL;
 node_t *            td_sockets = NULL;
@@ -42,7 +41,6 @@ icl_hash_t *        hashtable;
 
 void *              thread_function( void __attribute((unused)) * arg);
 void                clean_server(pthread_t *, int, int*);
-
 
 /**
  * @brief Gestione dei task lato server.
@@ -90,6 +88,8 @@ void * connection_handler(void * p_client_socket) {
             if(buff[dataLen - 1] == '\n' || dataLen > (MAXLINE-1)) break;
 
             if(bytes_read == 0 || bytes_read == -1 ) {close_connection_flag = 1;}
+
+            print_debug(buff, 1);
         }
 
         if(!close_connection_flag){
@@ -108,6 +108,7 @@ void * connection_handler(void * p_client_socket) {
                 switch (req->r_op_code)
                 {
                 case OP_READ_FILE:
+
 
                     /**
                      * Se mi mandano un path sbagliato fallisce, 
@@ -294,6 +295,8 @@ int start_server(int workers_n, int mem_size, int files_n, char * sock_name){
         return -1;
     }
     
+    fprintf(stderr, "\nSONO LA SOCKET : %d", server_socket);
+
     return 0;
 }
 
