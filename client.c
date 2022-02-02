@@ -32,7 +32,8 @@ char** str_split(char* a_str, const char a_delim);
 int fd_skt, fd_c; 
 
 
-int main(int argc, char * const argv[])
+int 
+main(int argc, char * const argv[])
 {
     int         opt;
     int         opcode;
@@ -97,12 +98,15 @@ int main(int argc, char * const argv[])
 
 }
 
-int closeConnection(const char * sockname){
+int 
+closeConnection(const char * sockname){
     close(fd_skt);
+    sockname = sockname;
     return 0;
 }
 
-char * format_request(char* request_body, int opt, int pid){
+char * 
+format_request(char* request_body, int opt, int pid){
 
     char * fn = (char *) malloc(sizeof(char) * 255);
     char op_str[sizeof(int) + 2];
@@ -131,7 +135,8 @@ char * format_request(char* request_body, int opt, int pid){
     return fn;
 }
 
-void send_request(int pid, char opt, char ** arguments){
+void 
+send_request(int pid, char opt, char ** arguments){
 
     int         i;
     int         letti;
@@ -188,7 +193,8 @@ void send_request(int pid, char opt, char ** arguments){
    
 }
 
-void print_usage(const char * argv[]){
+void 
+print_usage(const char * argv[]){
 
     printf("usage:  %s  -option [-option ...]\n"
        "Lista delle opzioni:\n"
@@ -211,7 +217,8 @@ void print_usage(const char * argv[]){
 }
 
 
-char** str_split(char* a_str, const char a_delim)
+char** 
+str_split(char* a_str, const char a_delim)
 {
     char** result    = 0;
     size_t count     = 0;

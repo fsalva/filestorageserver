@@ -28,7 +28,7 @@
 #include "../clientapi.h"
 #include "../prettyprint.h"
 
-
+int                 fd_skt;
 bool running = true;
 bool connected = false;
 int debug_flaggg = 1;
@@ -42,21 +42,29 @@ static pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
  * @param abs_t 
  * @return void* 
  */
-static void * thread_function(void *abs_t) {
+static void * 
+thread_function(void *abs_t) {
     struct timespec *abs = (struct timespec *) abs_t;
 
     pthread_mutex_lock(&lock);
     pthread_cond_timedwait(&cond, &lock, abs);
-
+    print_debug("SBLOCCATO!", 1);
     running = false;
     pthread_mutex_unlock(&lock);
     return NULL;
-}   
+}  
 
-int openConnection(const char* sockname, int msec, const struct timespec abstime)
+/**
+ * @brief Apre la connessione sulla socket specificata, e invoca un thread per controllare il timeout.
+ *         
+ * @param sockname 
+ * @param msec 
+ * @param abstime 
+ * @return identificatore del fd, o -1 se ci sono errori.
+ */
+int 
+openConnection(const char* sockname, int msec, const struct timespec abstime)
 {
-
-    int                 fd_skt;
     struct sockaddr_un  sa;
 
     pthread_t tid;
@@ -72,8 +80,8 @@ int openConnection(const char* sockname, int msec, const struct timespec abstime
 
     gettimeofday(&now, NULL);   // Prende il tempo 'attuale'
                                             // TODO: 
-    time_to_stop.tv_sec = now.tv_sec + 3;   // Ci aggiunge il tempo che dovrò specificare su abstime (default = 5s?) 
-    time_to_stop.tv_nsec = now.tv_usec * 1000;   
+    time_to_stop.tv_sec = now.tv_sec + 1;   // Ci aggiunge il tempo che dovrò specificare su abstime (default = 5s?) 
+    time_to_stop.tv_nsec = now.tv_usec + 500 * 1000;   
 
     pthread_create(&tid, NULL, &thread_function, (void *) &time_to_stop);
     
@@ -85,17 +93,28 @@ int openConnection(const char* sockname, int msec, const struct timespec abstime
             
             // Aspetta per "msec" millisecondi, poi riprova.
             usleep(msec * 1000);
-
         }
-        else {
+        else{
             // è connesso.
             pthread_cond_signal(&cond);
             pthread_join(tid, NULL);
             return fd_skt;
         }
-         
     }
 
     pthread_join(tid,NULL);
     return -1;
+}
+
+int 
+closeConnection(const char * sockname){
+    
+    /* Se il nome della socket matcha quello attuale:
+    /   - Invia una richiesta al server per chiudere
+    /   - Se il server accetta (Attendi risposta sulla socket)
+    /   - Chiude lui e chiude il server. 
+    */
+    close(fd_skt);
+    sockname = sockname;
+    return 0;
 }

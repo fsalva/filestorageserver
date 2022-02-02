@@ -11,3 +11,6 @@ vgcore.*
 
 #Eventuali socket dimenticate
 *.sock
+
+# librerie
+libs/artifact/
