@@ -143,7 +143,7 @@ void * connection_handler(void * p_client_socket) {
 
                 case OP_WRITE_FILES:
                     
-                    size_t mem_wr = write_file(req->r_body, req->r_pid, client_socket, hashtable);
+                    size_t mem_wr = write_file("/tmp/LIPSUM/randfile001.txt", req->r_pid, client_socket, hashtable);
                     
                     if(mem_wr > 0) {
                         memory_size -= mem_wr;
@@ -151,7 +151,7 @@ void * connection_handler(void * p_client_socket) {
                     } 
                     // DEBUG
                     fprintf(stderr, "\nDim memoria: %d\n,File salvati: %d\n", memory_size, files_amount);
-
+                    send_response(client_socket, ACK, "SIIIIIIIIIIIII");
                     break;
 
                 case CLOSE_CONNECTION: 

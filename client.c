@@ -78,6 +78,15 @@ main(int argc, char * const argv[])
             print_debug("Errore durante qualcosa. Ciao. \n", 1);
         }
         else{ print_debug("UOOOOOOOOOOOOO ARRIVAAAA", 1);}
+
+        if(writeFile("/tmp/LIPSUM/randfile001.txt", "/dev/null") < 0){
+            print_debug("erroreees\n", 1);
+        }
+        else
+        {
+            print_debug("ci siamo baby\n\n", 1);
+        }
+
         if (closeConnection(socket_n) == 0)  print_debug("Chiudo! \n", 1);
         else
             print_debug("Fallito! \n", 1);

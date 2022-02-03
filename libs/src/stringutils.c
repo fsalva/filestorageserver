@@ -32,7 +32,6 @@ char * formatStr(char *dest,int narg, ...) {
         strcat(dest,"+");
     }
     va_end(pargs);
-    printf("Inside function: %s\n",dest);
     return dest;
 }
 

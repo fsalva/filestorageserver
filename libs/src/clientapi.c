@@ -143,6 +143,23 @@ closeConnection(const char * sockname){
 }
 
 int 
+writeFile(const char * pathname, const char * dirname){
+    int response;
+    char * request_body;
+
+    this_pid = getpid();
+    request_body = (char *) malloc( ( strlen(pathname) + strlen(dirname) + 1) * sizeof(char) );
+    
+    formatStr(request_body, 2, pathname, dirname);
+
+    response = send_request(this_pid, OP_WRITE_FILES, str_split(request_body, '\0'));
+    
+    free(request_body);
+
+    return response;
+}
+
+int 
 openFile(const char * pathname, int flags){
     int     response;
     char *  request_body; 
@@ -157,7 +174,7 @@ openFile(const char * pathname, int flags){
     formatStr(request_body, 2, pathname, flag_str);
     
     response = send_request(this_pid, OP_OPEN_FILE, str_split(request_body, '\0'));
-    
+
     free(request_body);
     
     return response;
