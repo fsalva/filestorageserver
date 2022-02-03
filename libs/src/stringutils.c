@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 
 
 #include "../stringutils.h"
@@ -20,6 +21,20 @@ void trim(char * s) {
 
     memmove(s, p, l + 1);
 } 
+
+char * formatStr(char *dest,int narg, ...) {
+    *dest='\0';
+    va_list pargs;
+    va_start(pargs, narg);
+    for(int i=0;i<narg;i++) {
+        char *str = va_arg(pargs,char *);
+        strcat(dest,str);
+        strcat(dest,"+");
+    }
+    va_end(pargs);
+    printf("Inside function: %s\n",dest);
+    return dest;
+}
 
 char** 
 str_split(char* a_str, const char a_delim)

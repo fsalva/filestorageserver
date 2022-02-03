@@ -5,7 +5,7 @@ typedef struct _request
 {
     long    r_op_code;
     long    r_pid;
-    char *  r_path;
+    char *  r_body;
 
 } request;
 

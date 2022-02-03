@@ -8,6 +8,8 @@
 #include <unistd.h> 
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/types.h>
+
 
 
 /**
@@ -57,13 +59,14 @@ int read_file(){
  * @param   path      Percorso (del filesystem) al file da salvare in memoria.
  * @param   t         cache in cui salvare il file. 
  * @param   c_pid     PID del client.
- * @return  int      codice di risposta   
+ * @return  ssize_t    quantità di bytes letti o -1 in caso di errore   
  */
-int write_file(char * path, int c_pid, int c_socket, icl_hash_t * t){
+size_t write_file(char * path, int c_pid, int c_socket, icl_hash_t * t){
 
     void *      content = NULL;
     void *      debug = NULL;
     FILE *      fp = NULL;
+    size_t      f_size;
 
     fp = fopen(path, "r");
     if (fp == NULL){
@@ -73,8 +76,10 @@ int write_file(char * path, int c_pid, int c_socket, icl_hash_t * t){
 
     // Inserisco il contenuto del file in content
     content = read_file_content(fp);
+    f_size = get_file_size(fp);
 
-    icl_hash_insert(t, path, content);
+    if(icl_hash_insert(t, path, content) == NULL) return -1;
+
 
     fclose(fp);
     
@@ -86,10 +91,11 @@ int write_file(char * path, int c_pid, int c_socket, icl_hash_t * t){
     // ----------- SCRIVE NEL FILE I CONTENUTI DELLA CHIAVE DELL'HASHTABLE
     FILE * file = fopen("/tmp/LIPSUM/fuck.txt", "w");
     fprintf(file, debug);
-
+    
     fclose(file);
 
-    return 0;
+
+    return f_size;
     
 
 }

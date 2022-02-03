@@ -17,7 +17,7 @@
 
 
 /**
- * @brief parsing delle richieste di lettura di un file.
+ * @brief parsing del client
  * 
  * @param request_body
  * @return ** struct request parsed* 
@@ -52,8 +52,8 @@ request * parse_request(char * request_body){
             break;
 
         case 2:
-            result->r_path = malloc(strlen(token) * sizeof(char));
-            strcpy(result->r_path, token); 
+            result->r_body = malloc(strlen(token) * sizeof(char));
+            strcpy(result->r_body, token); 
             break;
 
         default:

@@ -24,6 +24,12 @@
 
 #define UNIX_PATH_MAX 108
                 
+
+int                 server_socket;
+int                 handledSuccessfully;
+int                 memory_size;
+int                 files_amount;
+
 node_t *            read_queue = NULL;
 node_t *            td_sockets = NULL;
 
@@ -39,8 +45,9 @@ pthread_cond_t      ssset_cond_var = PTHREAD_COND_INITIALIZER;
 icl_hash_t *        hashtable;
 
 
-void *              thread_function( void __attribute((unused)) * arg);
+int                 send_response(int, int, char *);
 void                clean_server(pthread_t *, int, int*);
+void *              thread_function( void __attribute((unused)) * arg);
 
 /**
  * @brief Gestione dei task lato server.
@@ -77,17 +84,13 @@ void * connection_handler(void * p_client_socket) {
         bytes_read = 0;
         dataLen = 0;
 
-        /**
-         * Leggo il messaggio del client sulla socket, tengo traccia della quantità di byte rimasti da leggere, 
-         * in caso il messaggio di richiesta sia più lungo della dimensione del buffer.
-         */
         
         while (!close_connection_flag && (bytes_read = read(client_socket, buff + dataLen, sizeof(buff) - dataLen - 1)) >= 0) {
             dataLen += bytes_read;
             //Se esco dai limiti del buffer o leggo un 'a capo' esco dal ciclo.  
             if(buff[dataLen - 1] == '\n' || dataLen > (MAXLINE-1)) break;
 
-            if(bytes_read == 0 || bytes_read == -1 ) {close_connection_flag = 1;}
+            if(bytes_read == 0 || bytes_read == -1 ) {close_connection_flag = 1;}   //TODO: Migliore gestione dell'errore ?
 
         }
 
@@ -108,42 +111,6 @@ void * connection_handler(void * p_client_socket) {
                 {
                 case OP_READ_FILE:
 
-
-                    /**
-                     * Se mi mandano un path sbagliato fallisce, 
-                     * e chiude la connessione
-                     
-                    path = malloc(sizeof(char) * strlen(req->r_path));
-                    
-                    if( (path = (realpath(req->r_path, NULL))) == NULL){ 
-                        shutdown(client_socket, SHUT_RDWR);
-                        perror("RealPath:");
-                        break;
-                    }
-                    */
-
-                    //fprintf(stderr, "\nPath: {%s}", path);
-
-                    /**
-                     * Come sopra. 
-                     * Se fallisce chiudo tutto.
-                     */
-
-
-                    fp = fopen(req->r_path, "r");
-                    if (fp == NULL) { 
-                        perror("Errore nell'apertura del file: "); 
-                        break;
-                    } 
-                    //fprintf(stderr, "\n\tOperation code: %ld \n\tRequester PID: %ld\n\tRequest Path: [%s]\n", req->r_op_code, req->r_pid, req->r_path);
-
-                    /**
-                     * Tieni traccia del numero di bytes letti fino a questo momento, poiche' 
-                     * se il file da inviare è più grande della dimensione del buffer lo invia in più mandate.
-                     * Il client --> DEVE <-- mantenere la connessione aperta abbastanza a lungo per riceverlo tutto,
-                     * altrimenti la write invoca un'eccezione per via della pipe rotta. 
-                     */
-                    
                     int n;
                     
                     printf("\n[🛫]Invio il file al client: %d.\n", client_socket);
@@ -175,17 +142,29 @@ void * connection_handler(void * p_client_socket) {
                     break;
 
                 case OP_WRITE_FILES:
-                    write_file(req->r_path, req->r_pid, client_socket, hashtable);
+                    
+                    size_t mem_wr = write_file(req->r_body, req->r_pid, client_socket, hashtable);
+                    
+                    if(mem_wr > 0) {
+                        memory_size -= mem_wr;
+                        files_amount--;
+                    } 
+                    // DEBUG
+                    fprintf(stderr, "\nDim memoria: %d\n,File salvati: %d\n", memory_size, files_amount);
+
                     break;
 
                 case CLOSE_CONNECTION: 
-                    write(client_socket, "Ciao!\000", sizeof("Ciao!\000"));
+                    send_response(client_socket, ACK, "Chiusura ordinata avvenuta correttamente. ");
                     close(client_socket);
                     client_socket = -1;
                     close_connection_flag = 1;
                     pthread_cond_signal(&read_cond_var);  
                     break;
 
+                case OP_OPEN_FILE:
+                    send_response(client_socket, ACK, "APRO APRO APROOOO. "); // e fa tutto il resto...
+                    break;
                 default:
                     
                     break;
@@ -254,6 +233,9 @@ int start_server(int workers_n, int mem_size, int files_n, char * sock_name){
     hashtable = icl_hash_create(16, hash_pjw, string_compare);
 
     handledSuccessfully = 0;
+
+    memory_size = mem_size;
+    files_amount = files_n; 
 
     index = calloc (workers_n, sizeof (int));
     for(int i = 0; i < workers_n; i++)
@@ -372,4 +354,50 @@ void loop_server(){
     }
 
 }
+
+/**
+ * @brief  Invia al client specificato dal file descriptor c_fd il codice di risposta 
+ *         e delle informazioni che possono essere utili in debug. 
+ * 
+ * @param c_fd file descriptor del client
+ * @param op_code 
+ * @param response_info  
+ * @return ** int (0 successo, codice di errore altrimenti.)
+ */
+int
+send_response(int c_fd, int op_code, char * response_info){
+    
+    char        buf[BUFSIZE];   
+
+    char *      resp = (char *) malloc(sizeof(char) * 255);
+    char        op_str[sizeof(int) + 2];
+    
+    // Una sorta di Int -> String
+    sprintf(op_str, "%d", op_code);
+    
+    
+    /**
+     * [OPCODE]#[Response info] 
+     * 
+     * Segue ^ questo modello per formattare le richieste. 
+    */
+
+    strcpy(resp, op_str);
+    strcat(resp, "#");
+    
+    strcat(resp, response_info);
+    strcat(resp, "#\n");
+    
+    /* Richiesta formattata, ora invia al client */ 
+
+    memset(buf, 0, BUFSIZE);
+            
+    if( write(c_fd, resp, strlen(resp)) < 0) {   // Errore in scrittura
+        perror("Write: ");
+        return -1;
+    }
+
+    return 0; 
+}
+
 

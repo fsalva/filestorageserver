@@ -12,6 +12,7 @@
 #define _POSIX_C_SOURCE 199309L
 #define _DEFAULT_SOURCE
 
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
@@ -141,6 +142,26 @@ closeConnection(const char * sockname){
     return -1;      // TODO: Setta errno
 }
 
+int 
+openFile(const char * pathname, int flags){
+    int     response;
+    char *  request_body; 
+
+    char flag_str[sizeof(int) + 2];
+    sprintf(flag_str, "%d", flags);
+
+    this_pid = getpid();
+    
+    request_body = (char *) malloc( ( strlen(pathname) + strlen(flag_str) + 1) * sizeof(char) );
+
+    formatStr(request_body, 2, pathname, flag_str);
+    
+    response = send_request(this_pid, OP_OPEN_FILE, str_split(request_body, '\0'));
+    
+    free(request_body);
+    
+    return response;
+}
 char * 
 format_request(char* request_body, int opt, int pid){
 
@@ -171,11 +192,11 @@ format_request(char* request_body, int opt, int pid){
     return fn;
 }
 
+
 int 
 send_request(int pid, int opt, char ** arguments){
 
     int         i;
-    int         letti;
     char *      request = NULL;
     char        buf[BUFSIZE];
 
@@ -185,39 +206,35 @@ send_request(int pid, int opt, char ** arguments){
     if(arguments){
 
         // Per ogni argomento della richiesta: 
-        for (i = 0; *(arguments + i); i++)
-        {   
-            // Formattalo in una singola richiesta: 
-            request = format_request(*(arguments + i), opt, pid);
+        for (i = 0; *(arguments + i); i++) {   
+            request = format_request(*(arguments + i), opt, pid); // Formattalo in una singola richiesta: 
             
             print_debug(request, 1);
 
-            letti = 0;  // quantita' di bytes ricevuti / richiesta.
             
             memset(buf, 0, BUFSIZE);
             
-            // Ed invialo sulla socket.
-            write(fd_skt, request, strlen(request));
+            write(fd_skt, request, strlen(request));    // Ed invialo sulla socket.
 
             dataLen = 0;    // quantità di bytes ricevuti / buffer
             
             // TODO: 
             // Per ora fa una conta dei bytes ricevuti in risposta.
             while((bytes_read = recv(fd_skt, buf, sizeof(buf), 0)) >= 0){
-            
-                dataLen += bytes_read;
+                
+                // TODO: STAMPA SE DEBUG E' ABILITATO.
+                fprintf(stderr, buf);
+
+                dataLen += bytes_read;  // Tiene traccia del numero di bytes letti, per controllare se va in overflow.
                 
                 if(dataLen > (BUFSIZE-1)){
-                    letti += dataLen;
                     memset(buf, 0, BUFSIZE);
                     dataLen = 0;
                     
                 } else if( buf[dataLen] == '\000') break; 
             }
 
-            letti += dataLen;
-
-            printf("[PID: %d][+] RECEIVED: %d bytes.\n",getpid(), letti);
+            //printf("[PID: %d][+] RECEIVED: %d bytes.\n",getpid(), letti);
 
             free(*(arguments + i));
         }
@@ -231,3 +248,4 @@ send_request(int pid, int opt, char ** arguments){
     return -1;
 
 }
+

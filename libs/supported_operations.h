@@ -6,7 +6,7 @@
 int read_file();
 int read_n_files();
 
-int write_file(char *, int, int , icl_hash_t *);
+size_t write_file(char *, int, int , icl_hash_t *);
 int write_n_files();
 
 

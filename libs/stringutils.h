@@ -7,3 +7,5 @@ trim(char *);
 
 char **
 str_split(char*, const char);
+
+char * formatStr(char *dest,int narg, ...);

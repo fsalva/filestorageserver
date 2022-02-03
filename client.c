@@ -18,14 +18,7 @@
 #include "./libs/clientapi.h"
 #include "./libs/prettyprint.h"
 
-int openConnection(const char * sockname, int msec, const struct timespec abst);
-int closeConnection(const char * sockname);
 void print_usage();
-
-void send_request(int, char, char**);
-char * format_request(char*, int, int);
-char** str_split(char* a_str, const char a_delim);
-
 
 int fd_c; 
 
@@ -80,8 +73,11 @@ main(int argc, char * const argv[])
     if( (fd_skt = (openConnection(socket_n, 100, x))) < 0){
         print_debug("Errore durante connessione con il server. Timeout.\n", 1);
     }
-    else {
-        
+    else {  // TEST DEBUG
+        if( openFile("/tmp/LIPSUM/randfile001.txt", 1) < 0) {
+            print_debug("Errore durante qualcosa. Ciao. \n", 1);
+        }
+        else{ print_debug("UOOOOOOOOOOOOO ARRIVAAAA", 1); }
         if (closeConnection(socket_n) == 0)  print_debug("Chiudo! \n", 1);
         else
             print_debug("Fallito! \n", 1);
