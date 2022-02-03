@@ -77,7 +77,7 @@ main(int argc, char * const argv[])
         if( openFile("/tmp/LIPSUM/randfile001.txt", 1) < 0) {
             print_debug("Errore durante qualcosa. Ciao. \n", 1);
         }
-        else{ print_debug("UOOOOOOOOOOOOO ARRIVAAAA", 1); }
+        else{ print_debug("UOOOOOOOOOOOOO ARRIVAAAA", 1);}
         if (closeConnection(socket_n) == 0)  print_debug("Chiudo! \n", 1);
         else
             print_debug("Fallito! \n", 1);
