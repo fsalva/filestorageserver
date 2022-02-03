@@ -16,4 +16,7 @@
 #define OP_CLOSE_FILE   108
 #define OP_REMOVE_FILE  109
 
+#define CLOSE_CONNECTION 999
+#define ACK             200
+
 typedef int make_iso_compilers_happy;

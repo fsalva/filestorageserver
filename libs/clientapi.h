@@ -3,6 +3,8 @@
 
 #include <sys/types.h>
 
+extern int fd_skt;
+
 int openConnection(const char * sockname, int msec, const struct timespec abstime);
 
 int closeConnection(const char * sockname);

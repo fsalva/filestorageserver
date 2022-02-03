@@ -178,7 +178,16 @@ void * connection_handler(void * p_client_socket) {
                     write_file(req->r_path, req->r_pid, client_socket, hashtable);
                     break;
 
+                case CLOSE_CONNECTION: 
+                    write(client_socket, "Ciao!\000", sizeof("Ciao!\000"));
+                    close(client_socket);
+                    client_socket = -1;
+                    close_connection_flag = 1;
+                    pthread_cond_signal(&read_cond_var);  
+                    break;
+
                 default:
+                    
                     break;
                 }
             }
@@ -186,15 +195,7 @@ void * connection_handler(void * p_client_socket) {
         else break;
     }
 
-    
-    //fprintf(stderr, "[X] Chiudo la socket! %d", client_socket);
-    close(client_socket);
-    client_socket = -1;
-    pthread_cond_signal(&read_cond_var);    //-- Segnalo ad un thread l'arrivo di un task
-
-
     return NULL;
-
 }
 
 /**

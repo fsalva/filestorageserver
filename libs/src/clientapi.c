@@ -13,6 +13,7 @@
 #define _DEFAULT_SOURCE
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdbool.h>
 #include <sys/socket.h>
 #include <errno.h>
@@ -26,12 +27,20 @@
 #include <string.h>
 
 #include "../clientapi.h"
+#include "../const.h"
+#include "../constvalues.h"
 #include "../prettyprint.h"
+#include "../stringutils.h"
 
-int                 fd_skt;
-bool running = true;
-bool connected = false;
-int debug_flaggg = 1;
+char *  format_request(char*, int, int);    // Formatta la richiesta in modo leggibile per il server.
+int     send_request(int, int, char **);   // Invia la richiesta formattata al server e riceve un codice di risposta.
+
+int     fd_skt;
+int     this_pid;
+int     debug_flaggg = 1;   // Todo: Rimuovi e metti negli args.
+bool    running = true;
+bool    connected = false;
+
 
 static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
@@ -93,13 +102,14 @@ openConnection(const char* sockname, int msec, const struct timespec abstime)
             
             // Aspetta per "msec" millisecondi, poi riprova.
             usleep(msec * 1000);
+            printf("ops");
         }
-        else{
+        
             // è connesso.
             pthread_cond_signal(&cond);
             pthread_join(tid, NULL);
             return fd_skt;
-        }
+        
     }
 
     pthread_join(tid,NULL);
@@ -114,7 +124,110 @@ closeConnection(const char * sockname){
     /   - Se il server accetta (Attendi risposta sulla socket)
     /   - Chiude lui e chiude il server. 
     */
-    close(fd_skt);
-    sockname = sockname;
-    return 0;
+    int     response;
+
+    this_pid = getpid();     
+
+    response = send_request(this_pid, CLOSE_CONNECTION, str_split((char *) sockname, '\0'));
+
+    fprintf(stderr, "\n\t%d <--- Response dal server??", response);
+
+    if(response == 0) {  // Match della socket, il server fa l'ACK della chiusura ordinata
+        close(fd_skt);
+        return 0;
+
+    }
+    
+    return -1;      // TODO: Setta errno
+}
+
+char * 
+format_request(char* request_body, int opt, int pid){
+
+    char * fn = (char *) malloc(sizeof(char) * 255);
+    char op_str[sizeof(int) + 2];
+    sprintf(op_str, "%d", opt);
+    
+    fprintf(stderr, op_str);
+
+    char pid_str[sizeof(int) + 2];
+    sprintf(pid_str, "%d", pid);
+    
+    /**
+     * [OPCODE]#[pid]#[request body] 
+     * 
+     * Segue ^ questo modello per formattare le richieste. 
+    */
+
+    strcpy(fn, op_str);
+    strcat(fn, "#");
+
+    strcat(fn, pid_str);
+    strcat(fn, "#");
+
+    strcat(fn, request_body);
+    strcat(fn, "#\n");
+    
+    return fn;
+}
+
+int 
+send_request(int pid, int opt, char ** arguments){
+
+    int         i;
+    int         letti;
+    char *      request = NULL;
+    char        buf[BUFSIZE];
+
+    ssize_t bytes_read;
+    size_t dataLen;
+
+    if(arguments){
+
+        // Per ogni argomento della richiesta: 
+        for (i = 0; *(arguments + i); i++)
+        {   
+            // Formattalo in una singola richiesta: 
+            request = format_request(*(arguments + i), opt, pid);
+            
+            print_debug(request, 1);
+
+            letti = 0;  // quantita' di bytes ricevuti / richiesta.
+            
+            memset(buf, 0, BUFSIZE);
+            
+            // Ed invialo sulla socket.
+            write(fd_skt, request, strlen(request));
+
+            dataLen = 0;    // quantità di bytes ricevuti / buffer
+            
+            // TODO: 
+            // Per ora fa una conta dei bytes ricevuti in risposta.
+            while((bytes_read = recv(fd_skt, buf, sizeof(buf), 0)) >= 0){
+            
+                dataLen += bytes_read;
+                
+                if(dataLen > (BUFSIZE-1)){
+                    letti += dataLen;
+                    memset(buf, 0, BUFSIZE);
+                    dataLen = 0;
+                    
+                } else if( buf[dataLen] == '\000') break; 
+            }
+
+            letti += dataLen;
+
+            printf("[PID: %d][+] RECEIVED: %d bytes.\n",getpid(), letti);
+
+            free(*(arguments + i));
+        }
+
+        printf("\n");
+        free(arguments);
+
+        return 0;
+    }
+
+    return -1;
+
 }

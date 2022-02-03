@@ -2,4 +2,8 @@
  * @brief Interfaccia per le utilities per lavorare sulle stringhe usate nel progetto.
  * 
  */
-void trim(char *); 
+void 
+trim(char *); 
+
+char **
+str_split(char*, const char);
