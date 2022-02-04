@@ -1,3 +1,4 @@
+                    
 #include "../server.h"
 #include "../queue.h"
 #include "../const.h"
@@ -106,6 +107,8 @@ void * connection_handler(void * p_client_socket) {
 
                 req = parse_request(buff);
 
+                fprintf(stderr, "\nBody richiesta: %s, Opcode: %d", req->r_body);
+
                 switch (req->r_op_code) {
                 
                     case OP_READ_FILE:
@@ -144,17 +147,25 @@ void * connection_handler(void * p_client_socket) {
 
                     case OP_WRITE_FILES:
                         
-                        int flag = O_READ | O_WRITE;
+                        int     flag = O_READ | O_WRITE;
+                        void *  file_content = NULL;
+
+                        // Invia un 'ACK' al client, e aspetta il contenuto del file: 
+                        send_response(client_socket, ACK, INFO_WAITING_FILE);
                         
-                        size_t mem_wr = write_file("/tmp/LIPSUM/randfile001.txt", req->r_pid, client_socket, hashtable, flag);
+                        fprintf(stderr, "Mandato?!");
+
+                        pthread_cond_signal(&read_cond_var);  
+
+                        // per ogni file nella richiesta
+                        /*
+                        for (char *p = strtok(req->r_body,"+"); p != NULL; p = strtok(NULL, "+"))
+                        {
+                            fprintf(stderr, "😠 File richiesto: %s\n",p);
+                        }
+                        //file_content = get_file(client_socket); */
                         
-                        if(mem_wr > 0) {
-                            memory_size -= mem_wr;
-                            files_amount--;
-                        } 
-                        // DEBUG
-                        fprintf(stderr, "\nDim memoria: %d\n,File salvati: %d\n", memory_size, files_amount);
-                        send_response(client_socket, ACK, "SIIIIIIIIIIIII");
+                        
                         break;
 
                     case CLOSE_CONNECTION: 
@@ -322,8 +333,6 @@ int start_server(int workers_n, int mem_size, int files_n, char * sock_name){
         return -1;
     }
     
-    fprintf(stderr, "\nSONO LA SOCKET : %d", server_socket);
-
     return 0;
 }
 
@@ -383,7 +392,7 @@ void loop_server(){
     while (1)
     {
         client_socket = accept(server_socket, NULL, 0);                                 //-- Si blocca sulla accept.
-        //fprintf(stderr, "\n[👋] Connessione in arrivo sul fd: %d! ", client_socket);    //-- e' arrivato una connessione (si sblocca)!
+        fprintf(stderr, "\n[👋] Connessione in arrivo sul fd: %d! ", client_socket);    //-- e' arrivato una connessione (si sblocca)!
         
         if (client_socket == -1) perror("Accept(): ");                                   //-- errore di connessione.
         else {

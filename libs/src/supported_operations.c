@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h> 
 #include <sys/socket.h>
 #include <sys/stat.h>
@@ -147,7 +148,7 @@ get_file(int client_socket){
     ssize_t bytes_read;
     size_t dataLen = 0;
 
-    char * buff;
+    char * buff = NULL;
 
     memset(buff, 0, BUFSIZE);
             

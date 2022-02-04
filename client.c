@@ -34,7 +34,6 @@ main(int argc, char * const argv[])
     char **     arguments;
 
     c_pid = getpid();
-    
 
     const struct timespec x = {5, 0};
 
@@ -75,19 +74,7 @@ main(int argc, char * const argv[])
     }
     else {  // TEST DEBUG
 
-        int o_flag = O_CREATE | O_LOCK;
 
-        if( openFile("/tmp/LIPSUM/randfile001.txt", o_flag) < 0) {
-            print_debug("Errore durante qualcosa. Ciao. \n", 1);
-        }
-        else{ print_debug("\n\n\tDovrebbe crearlo! :)\n", 1);}
-
-        if( openFile("/tmp/LIPSUM/randfile001.txt", o_flag) < 0) {
-            print_debug("Errore durante qualcosa. Ciao. (GIUSTO)\n", 1);
-        }
-        else{ print_debug("\n\n\t NON dovrebbe crearlo! :(", 1);}
-
-       
 
         if (closeConnection(socket_n) == 0)  print_debug("Chiudo! \n", 1);
         else

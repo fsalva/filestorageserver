@@ -129,6 +129,8 @@ closeConnection(const char * sockname){
 
     this_pid = getpid();     
 
+    fprintf(stderr, "Invio %d + %d + %s", this_pid, CLOSE_CONNECTION, sockname);
+
     response = send_request(this_pid, CLOSE_CONNECTION, str_split((char *) sockname, '\0'));
 
     fprintf(stderr, "\n\t%d <--- Response dal server??", response);
@@ -154,6 +156,8 @@ writeFile(const char * pathname, const char * dirname){
 
     response = send_request(this_pid, OP_WRITE_FILES, str_split(request_body, '\0'));
     
+    fprintf(stderr, "Sto inviando la richiesta %s", request_body);
+
     free(request_body);
 
     return response;
@@ -228,10 +232,12 @@ send_request(int pid, int opt, char ** arguments){
             
             print_debug(request, 1);
 
-            
+            //debug.
+            bytes_read = write(fd_skt, request, strlen(request));    // Ed invialo sulla socket.
+
+            fprintf("Inviati %zu bytes", bytes_read);
+
             memset(buf, 0, BUFSIZE);
-            
-            write(fd_skt, request, strlen(request));    // Ed invialo sulla socket.
 
             dataLen = 0;    // quantità di bytes ricevuti / buffer
             
