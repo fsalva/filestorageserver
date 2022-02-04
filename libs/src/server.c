@@ -144,17 +144,17 @@ void * connection_handler(void * p_client_socket) {
 
                     case OP_WRITE_FILES:
                         
-                        int     flag = O_READ | O_WRITE;
-                        void *  file_content = NULL;
-
-                        // Invia un 'ACK' al client, e aspetta il contenuto del file: 
-                        send_response(client_socket, ACK, INFO_WAITING_FILE);
-
-                        // per ogni file nella richiesta
-                        //
-                        file_content = get_file(client_socket);
+                        int flag = O_READ | O_WRITE;
                         
+                        size_t mem_wr = write_file("/tmp/LIPSUM/randfile001.txt", req->r_pid, client_socket, hashtable, flag);
                         
+                        if(mem_wr > 0) {
+                            memory_size -= mem_wr;
+                            files_amount--;
+                        } 
+                        // DEBUG
+                        fprintf(stderr, "\nDim memoria: %d\n,File salvati: %d\n", memory_size, files_amount);
+                        send_response(client_socket, ACK, "SIIIIIIIIIIIII");
                         break;
 
                     case CLOSE_CONNECTION: 
