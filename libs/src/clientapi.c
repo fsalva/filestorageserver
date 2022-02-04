@@ -187,29 +187,39 @@ char *
 format_request(char* request_body, int opt, int pid){
 
     char * fn = (char *) malloc(sizeof(char) * 255);
-    char op_str[sizeof(int) + 2];
+    char * op_str = (char *) malloc(sizeof(char) * 4);
     sprintf(op_str, "%d", opt);
     
-    fprintf(stderr, op_str);
+    fprintf(stderr, "OPT_STRING: %s", op_str);
 
     char pid_str[sizeof(int) + 2];
     sprintf(pid_str, "%d", pid);
     
+
+
     /**
      * [OPCODE]#[pid]#[request body] 
      * 
      * Segue ^ questo modello per formattare le richieste. 
     */
 
+    sprintf(fn,"%d#%d#%s\n", opt, pid, request_body);
+
+    /*
     strcpy(fn, op_str);
     strcat(fn, "#");
+    fprintf(stderr, "\n1:%s %s", fn,op_str);
 
     strcat(fn, pid_str);
     strcat(fn, "#");
-
-    strcat(fn, request_body);
-    strcat(fn, "#\n");
+    fprintf(stderr, "\n2:%s %s", fn,pid_str);
     
+    strcat(fn, request_body);
+    strcat(fn, "#");
+    */
+    fprintf(stderr, "\nDOVREBBE ESSERE: %s", fn);
+
+
     return fn;
 }
 
@@ -230,12 +240,12 @@ send_request(int pid, int opt, char ** arguments){
         for (i = 0; *(arguments + i); i++) {   
             request = format_request(*(arguments + i), opt, pid); // Formattalo in una singola richiesta: 
             
-            print_debug(request, 1);
+            //print_debug(request, 1);
 
             //debug.
             bytes_read = write(fd_skt, request, strlen(request));    // Ed invialo sulla socket.
 
-            fprintf("Inviati %zu bytes", bytes_read);
+            fprintf(stderr, "Inviati %zu bytes", bytes_read);
 
             memset(buf, 0, BUFSIZE);
 

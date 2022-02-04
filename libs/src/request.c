@@ -39,7 +39,9 @@ request * parse_request(char * request_body){
 
     int count = 0;
 
-    while (token) {
+    while (token != NULL) {
+
+        fprintf(stderr, "\nToken: %s", token);
 
         switch (count)
         {

@@ -72,7 +72,7 @@ void * connection_handler(void * p_client_socket) {
 
     client_socket = * ((int*)p_client_socket); 
     free(p_client_socket);  // -- corrisponde alla malloc in thread_function
-    
+
 
     //Azzero il buffer.
     memset(buff, 0 , MAXLINE);
@@ -93,6 +93,7 @@ void * connection_handler(void * p_client_socket) {
             if(bytes_read == 0 || bytes_read == -1 ) {close_connection_flag = 1;}   //TODO: Migliore gestione dell'errore ?
 
         }
+        fprintf(stderr, "qui");    
 
         if(!close_connection_flag){
 
@@ -107,7 +108,7 @@ void * connection_handler(void * p_client_socket) {
 
                 req = parse_request(buff);
 
-                fprintf(stderr, "\nBody richiesta: %s, Opcode: %d", req->r_body);
+                fprintf(stderr, "\nBody richiesta: %s, Opcode: %ld", req->r_body, req->r_op_code);
 
                 switch (req->r_op_code) {
                 
