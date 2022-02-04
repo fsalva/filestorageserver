@@ -19,4 +19,8 @@ create_file(char * path, int c_pid, int c_socket, icl_hash_t *, int flag);
 int 
 lock_file(char * path, int c_pid, int c_socket, icl_hash_t * hashtable, int flag);
 
+void * 
+get_file(int);
+
+
 #endif

@@ -33,5 +33,6 @@
 #define INFO_FILE_ALREADY_CREATED "File gia' presente in memoria."
 #define LOCK_ERROR  406
 #define INFO_LOCK_ERROR "Errore nel prendere la lock."
+#define INFO_WAITING_FILE "In attesa di ricevere i contenuti del file."
 
 typedef int make_iso_compilers_happy;

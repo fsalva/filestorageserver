@@ -23,6 +23,8 @@ typedef struct icl_entry_s {
     int     locked;
     int     read;
     int     write;
+    int     own_pid;
+    int     lock_pid;
     struct icl_entry_s* next;
 } icl_entry_t;
 
@@ -41,8 +43,8 @@ void
 * icl_hash_find(icl_hash_t *, void* );
 
 icl_entry_t
-* icl_hash_insert(icl_hash_t *, void*, void *, int),
-    * icl_hash_update_insert(icl_hash_t *, void*, void *, void **, int);
+* icl_hash_insert(icl_hash_t *, void*, void *, int, int),
+    * icl_hash_update_insert(icl_hash_t *, void*, void *, void **, int, int);
 
 int
 icl_hash_destroy(icl_hash_t *, void (*)(void*), void (*)(void*)),

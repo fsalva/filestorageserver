@@ -133,7 +133,7 @@ icl_hash_find(icl_hash_t *ht, void* key)
  */
 
 icl_entry_t *
-icl_hash_insert(icl_hash_t *ht, void* key, void *data, int flags)
+icl_hash_insert(icl_hash_t *ht, void* key, void *data, int flags, int o_pid)
 {
     icl_entry_t *curr;
     unsigned int hash_val;
@@ -156,6 +156,12 @@ icl_hash_insert(icl_hash_t *ht, void* key, void *data, int flags)
     curr->write     = flags & O_WRITE;
     curr->refs      = 0;
     curr->data      = data;
+    curr->own_pid   = o_pid;
+    
+    if(curr->locked) curr->lock_pid = o_pid; // Se alla creazione è richiesto il lock:
+
+    else curr->lock_pid = 0;    // Se sto solo creando il file.
+    
     curr->next      = ht->buckets[hash_val]; /* add at start */
 
     ht->buckets[hash_val] = curr;
@@ -177,7 +183,7 @@ icl_hash_insert(icl_hash_t *ht, void* key, void *data, int flags)
  */
 
 icl_entry_t *
-icl_hash_update_insert(icl_hash_t *ht, void* key, void *data, void **olddata, int new_flag)
+icl_hash_update_insert(icl_hash_t *ht, void* key, void *data, void **olddata, int new_flag, int pid_client)
 {
     icl_entry_t *curr, *prev;
     unsigned int hash_val;
@@ -212,6 +218,8 @@ icl_hash_update_insert(icl_hash_t *ht, void* key, void *data, void **olddata, in
     curr->refs += 1;
     curr->data = data;
     curr->next = ht->buckets[hash_val]; /* add at start */
+
+    if(curr->locked) curr->lock_pid = pid_client;
 
     ht->buckets[hash_val] = curr;
     ht->nentries++;
