@@ -93,7 +93,6 @@ void * connection_handler(void * p_client_socket) {
             if(bytes_read == 0 || bytes_read == -1 ) {close_connection_flag = 1;}   //TODO: Migliore gestione dell'errore ?
 
         }
-        fprintf(stderr, "qui");    
 
         if(!close_connection_flag){
 
@@ -107,8 +106,6 @@ void * connection_handler(void * p_client_socket) {
             } else {    // Lettura avvenuta correttamente. 
 
                 req = parse_request(buff);
-
-                fprintf(stderr, "\nBody richiesta: %s, Opcode: %ld", req->r_body, req->r_op_code);
 
                 switch (req->r_op_code) {
                 
@@ -132,7 +129,6 @@ void * connection_handler(void * p_client_socket) {
 
                         write(client_socket, "\000", sizeof("\000"));
                         
-                        
                         //Chiudo il file (TODO: va modificato per leggere in memoria, non da file system!)
                         fclose(fp);
 
@@ -148,23 +144,15 @@ void * connection_handler(void * p_client_socket) {
 
                     case OP_WRITE_FILES:
                         
-                        int     flag = O_READ | O_WRITE;
-                        void *  file_content = NULL;
+                        //int     flag = O_READ | O_WRITE;
+                        //void *  file_content = NULL;
 
                         // Invia un 'ACK' al client, e aspetta il contenuto del file: 
                         send_response(client_socket, ACK, INFO_WAITING_FILE);
-                        
-                        fprintf(stderr, "Mandato?!");
 
                         pthread_cond_signal(&read_cond_var);  
 
-                        // per ogni file nella richiesta
-                        /*
-                        for (char *p = strtok(req->r_body,"+"); p != NULL; p = strtok(NULL, "+"))
-                        {
-                            fprintf(stderr, "😠 File richiesto: %s\n",p);
-                        }
-                        //file_content = get_file(client_socket); */
+                        // Inserire contatore da parte del client per il numero di file richiesti: 
                         
                         
                         break;
@@ -187,6 +175,8 @@ void * connection_handler(void * p_client_socket) {
                         // Ed il secondo, il flag.
                         o_flag = strtol(strtok(NULL, "+"), NULL, 10);
 
+                        //fprintf(stderr, "\nPath che cerco: %s",path);
+
                         found = icl_hash_find(hashtable, path);
 
                         if(found == NULL)   // File non esiste nella hashtable:
@@ -195,8 +185,11 @@ void * connection_handler(void * p_client_socket) {
                                 send_response(client_socket, FILE_NOT_FOUND, INFO_FILE_NOT_FOUND);
                             }
                             else {    // OK: File non esiste -> Crea file.
-                                 if(create_file(path, req->r_pid, client_socket, hashtable, o_flag) >= 0) // Crea file.
+                                int res;
+                                 if((res = (create_file(path, req->r_pid, client_socket, hashtable, o_flag))) >= 0) // Crea file.
+                                    {
                                     send_response(client_socket, FILE_CREATED, INFO_FILE_CREATED);
+                                    }
                                 else 
                                     send_response(client_socket, FILE_NOT_CREATED, INFO_FILE_NOT_CREATED);  // Errore hashtable. 
 

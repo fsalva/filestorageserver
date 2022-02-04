@@ -115,10 +115,10 @@ size_t write_file(char * path, int c_pid, int c_socket, icl_hash_t * t, int flag
  */
 int 
 create_file (char * path, int c_pid, int c_socket, icl_hash_t * hashtable, int flag){
-    void *  content = "x"; // Contenuto finto per evitare che resituisca NULL (E ci sia un bug nella creazione due file uguale)
-
+    
+    void *  content = "x"; // Contenuto finto per evitare che resituisca NULL (E ci sia un bug nella creazione due file uguali)
+    
     if(icl_hash_insert(hashtable, path, content, flag, c_pid) == NULL) return -1;
-
 
     return 0;
 }

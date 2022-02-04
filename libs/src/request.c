@@ -24,8 +24,6 @@
  */
 request * parse_request(char * request_body){
         
-    fprintf(stderr, "\t\t%s\n", request_body);
-
     // Alloco spazio per la struct di ritorno
     request * result = malloc(sizeof(result));
 
@@ -40,8 +38,6 @@ request * parse_request(char * request_body){
     int count = 0;
 
     while (token != NULL) {
-
-        fprintf(stderr, "\nToken: %s", token);
 
         switch (count)
         {

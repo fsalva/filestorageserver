@@ -129,11 +129,7 @@ closeConnection(const char * sockname){
 
     this_pid = getpid();     
 
-    fprintf(stderr, "Invio %d + %d + %s", this_pid, CLOSE_CONNECTION, sockname);
-
     response = send_request(this_pid, CLOSE_CONNECTION, str_split((char *) sockname, '\0'));
-
-    fprintf(stderr, "\n\t%d <--- Response dal server??", response);
 
     if(response == 0) {  // Match della socket, il server fa l'ACK della chiusura ordinata
         close(fd_skt);
@@ -156,7 +152,7 @@ writeFile(const char * pathname, const char * dirname){
 
     response = send_request(this_pid, OP_WRITE_FILES, str_split(request_body, '\0'));
     
-    fprintf(stderr, "Sto inviando la richiesta %s", request_body);
+    // Inviare il file di ritorno.
 
     free(request_body);
 
@@ -190,12 +186,8 @@ format_request(char* request_body, int opt, int pid){
     char * op_str = (char *) malloc(sizeof(char) * 4);
     sprintf(op_str, "%d", opt);
     
-    fprintf(stderr, "OPT_STRING: %s", op_str);
-
     char pid_str[sizeof(int) + 2];
     sprintf(pid_str, "%d", pid);
-    
-
 
     /**
      * [OPCODE]#[pid]#[request body] 
@@ -205,19 +197,6 @@ format_request(char* request_body, int opt, int pid){
 
     sprintf(fn,"%d#%d#%s\n", opt, pid, request_body);
 
-    /*
-    strcpy(fn, op_str);
-    strcat(fn, "#");
-    fprintf(stderr, "\n1:%s %s", fn,op_str);
-
-    strcat(fn, pid_str);
-    strcat(fn, "#");
-    fprintf(stderr, "\n2:%s %s", fn,pid_str);
-    
-    strcat(fn, request_body);
-    strcat(fn, "#");
-    */
-    fprintf(stderr, "\nDOVREBBE ESSERE: %s", fn);
 
 
     return fn;
