@@ -74,18 +74,20 @@ main(int argc, char * const argv[])
         print_debug("Errore durante connessione con il server. Timeout.\n", 1);
     }
     else {  // TEST DEBUG
-        if( openFile("/tmp/LIPSUM/randfile001.txt", 1) < 0) {
+
+        int o_flag = O_CREATE | O_LOCK;
+
+        if( openFile("/tmp/LIPSUM/randfile001.txt", o_flag) < 0) {
             print_debug("Errore durante qualcosa. Ciao. \n", 1);
         }
-        else{ print_debug("UOOOOOOOOOOOOO ARRIVAAAA", 1);}
+        else{ print_debug("\n\n\tDovrebbe crearlo! :)\n", 1);}
 
-        if(writeFile("/tmp/LIPSUM/randfile001.txt", "/dev/null") < 0){
-            print_debug("erroreees\n", 1);
+        if( openFile("/tmp/LIPSUM/randfile001.txt", o_flag) < 0) {
+            print_debug("Errore durante qualcosa. Ciao. (GIUSTO)\n", 1);
         }
-        else
-        {
-            print_debug("ci siamo baby\n\n", 1);
-        }
+        else{ print_debug("\n\n\t NON dovrebbe crearlo! :(", 1);}
+
+       
 
         if (closeConnection(socket_n) == 0)  print_debug("Chiudo! \n", 1);
         else

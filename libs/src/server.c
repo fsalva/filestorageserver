@@ -22,8 +22,7 @@
 #include <sys/un.h>
 #include <sys/time.h>
 
-#define UNIX_PATH_MAX 108
-                
+#define UNIX_PATH_MAX 108    
 
 int                 server_socket;
 int                 handledSuccessfully;
@@ -107,67 +106,113 @@ void * connection_handler(void * p_client_socket) {
 
                 req = parse_request(buff);
 
-                switch (req->r_op_code)
-                {
-                case OP_READ_FILE:
+                switch (req->r_op_code) {
+                
+                    case OP_READ_FILE:
 
-                    int n;
-                    
-                    printf("\n[🛫]Invio il file al client: %d.\n", client_socket);
+                        int n;
+                        
+                        printf("\n[🛫]Invio il file al client: %d.\n", client_socket);
 
-                    while((bytes_read = fread(buff, sizeof(char), BUFSIZE, fp)) > 0)
-                    {
-                        //fflush(stdout);
-                        
-                        
-                        if((n =  write(client_socket, buff, bytes_read)) <= 0){
-                            perror("[-] Write: ");
-                            //Ignoro SIGPIPE e chiudo manualmente le connessioni lato server.
-                            break;
+                        while((bytes_read = fread(buff, sizeof(char), BUFSIZE, fp)) > 0)
+                        {
+                            //fflush(stdout);
+                            
+                            
+                            if((n =  write(client_socket, buff, bytes_read)) <= 0){
+                                perror("[-] Write: ");
+                                //Ignoro SIGPIPE e chiudo manualmente le connessioni lato server.
+                                break;
+                            }
                         }
-                    }
 
-                    write(client_socket, "\000", sizeof("\000"));
-                    
-                    
-                    //Chiudo il file (TODO: va modificato per leggere in memoria, non da file system!)
-                    fclose(fp);
+                        write(client_socket, "\000", sizeof("\000"));
+                        
+                        
+                        //Chiudo il file (TODO: va modificato per leggere in memoria, non da file system!)
+                        fclose(fp);
 
-                    //Libero la memoria usata per il path
-                    free(path);
-                    
-                    Pthread_mutex_lock(&ctr_mtx);
-                    handledSuccessfully++;
-                    Pthread_mutex_unlock(&ctr_mtx);
-                    break;
+                        //Libero la memoria usata per il path
+                        free(path);
+                        
+                        Pthread_mutex_lock(&ctr_mtx);
+                        handledSuccessfully++;
+                        Pthread_mutex_unlock(&ctr_mtx);
 
-                case OP_WRITE_FILES:
-                    
-                    size_t mem_wr = write_file("/tmp/LIPSUM/randfile001.txt", req->r_pid, client_socket, hashtable);
-                    
-                    if(mem_wr > 0) {
-                        memory_size -= mem_wr;
-                        files_amount--;
-                    } 
-                    // DEBUG
-                    fprintf(stderr, "\nDim memoria: %d\n,File salvati: %d\n", memory_size, files_amount);
-                    send_response(client_socket, ACK, "SIIIIIIIIIIIII");
-                    break;
+                        pthread_cond_signal(&read_cond_var);  
+                        break;
 
-                case CLOSE_CONNECTION: 
-                    send_response(client_socket, ACK, "Chiusura ordinata avvenuta correttamente. ");
-                    close(client_socket);
-                    client_socket = -1;
-                    close_connection_flag = 1;
-                    pthread_cond_signal(&read_cond_var);  
-                    break;
+                    case OP_WRITE_FILES:
+                        
+                        int flag = O_READ | O_WRITE;
+                        
+                        size_t mem_wr = write_file("/tmp/LIPSUM/randfile001.txt", req->r_pid, client_socket, hashtable, flag);
+                        
+                        if(mem_wr > 0) {
+                            memory_size -= mem_wr;
+                            files_amount--;
+                        } 
+                        // DEBUG
+                        fprintf(stderr, "\nDim memoria: %d\n,File salvati: %d\n", memory_size, files_amount);
+                        send_response(client_socket, ACK, "SIIIIIIIIIIIII");
+                        break;
 
-                case OP_OPEN_FILE:
-                    send_response(client_socket, ACK, "APRO APRO APROOOO. "); // e fa tutto il resto...
-                    break;
-                default:
-                    
-                    break;
+                    case CLOSE_CONNECTION: 
+                        send_response(client_socket, ACK, "Chiusura ordinata avvenuta correttamente. ");
+                        close(client_socket);
+                        client_socket = -1;
+                        close_connection_flag = 1;
+                        break;
+
+                    case OP_OPEN_FILE:
+                        long    o_flag = 0;     // default value
+                        char *  path = NULL;
+                        void *  found = NULL;
+                        
+                        // Prendo il primo 'argomento' della richiesta, il path:
+                        path = strtok(req->r_body, "+");
+                        
+                        // Ed il secondo, il flag.
+                        o_flag = strtol(strtok(NULL, "+"), NULL, 10);
+
+                        found = icl_hash_find(hashtable, path);
+
+                        if(found == NULL)   // File non esiste nella hashtable:
+                        {
+                            if(o_flag & ! O_CREATE){  // ERR: Se non esiste non puoi lavorarci sopra.
+                                send_response(client_socket, FILE_NOT_FOUND, INFO_FILE_NOT_FOUND);
+                            }
+                            else {    // OK: File non esiste -> Crea file.
+                                 if(create_file(path, req->r_pid, client_socket, hashtable, o_flag) >= 0) // Crea file.
+                                    send_response(client_socket, FILE_CREATED, INFO_FILE_CREATED);
+                                else 
+                                    send_response(client_socket, FILE_NOT_CREATED, INFO_FILE_NOT_CREATED);  // Errore hashtable. 
+
+                            }
+                        }
+                        else    // File esiste già
+                        {
+                            if(o_flag | O_CREATE)   // ERR: Non puoi creare un file che esiste già.
+                                send_response(client_socket, FILE_ALREADY_CREATED, INFO_FILE_ALREADY_CREATED);
+                            else
+                            {
+                                // Fai la lock.
+                                if (lock_file(path, req->r_pid, client_socket, hashtable, o_flag) >= 0)
+                                    send_response(client_socket, FILE_LOCKED, INFO_FILE_LOCKED);
+                                else
+                                    send_response(client_socket, LOCK_ERROR, INFO_LOCK_ERROR);
+                            }
+
+                        }
+                        
+
+                        pthread_cond_signal(&read_cond_var);  
+
+                        free(path);
+                        break;
+                    default:
+                        
+                        break;
                 }
             }
         }

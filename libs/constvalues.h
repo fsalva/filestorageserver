@@ -1,6 +1,3 @@
-//Path per socket e file di configurazione.
-#define CONFIG_PATH "./config.txt"
-#define SOCKNAME "./socket/l.sock"
 
 //Costanti
 #define MAXLINE 4096
@@ -20,5 +17,11 @@
 #define OP_CLOSE_FILE   108
 #define OP_REMOVE_FILE  109
 
+enum _FILE_FLAGS { 
+   O_CREATE = 0x1,
+   O_LOCK   = 0x2, 
+   O_READ   = 0x4,
+   O_WRITE  = 0x8
+};
 
 typedef int make_iso_compilers_happy;

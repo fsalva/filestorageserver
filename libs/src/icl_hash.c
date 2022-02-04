@@ -17,6 +17,7 @@
 #include <assert.h>
 
 #include "../icl_hash.h"
+#include "../constvalues.h"
 
 #include <limits.h>
 
@@ -75,6 +76,8 @@ icl_hash_create( int nbuckets, unsigned int (*hash_function)(void*), int (*hash_
     icl_hash_t *ht;
     int i;
 
+    
+
     ht = (icl_hash_t*) malloc(sizeof(icl_hash_t));
     if(!ht) return NULL;
 
@@ -130,7 +133,7 @@ icl_hash_find(icl_hash_t *ht, void* key)
  */
 
 icl_entry_t *
-icl_hash_insert(icl_hash_t *ht, void* key, void *data)
+icl_hash_insert(icl_hash_t *ht, void* key, void *data, int flags)
 {
     icl_entry_t *curr;
     unsigned int hash_val;
@@ -147,9 +150,13 @@ icl_hash_insert(icl_hash_t *ht, void* key, void *data)
     curr = (icl_entry_t*)malloc(sizeof(icl_entry_t));
     if(!curr) return NULL;
 
-    curr->key = key;
-    curr->data = data;
-    curr->next = ht->buckets[hash_val]; /* add at start */
+    curr->key       = key;
+    curr->locked    = flags & O_LOCK;
+    curr->read      = flags & O_READ;
+    curr->write     = flags & O_WRITE;
+    curr->refs      = 0;
+    curr->data      = data;
+    curr->next      = ht->buckets[hash_val]; /* add at start */
 
     ht->buckets[hash_val] = curr;
     ht->nentries++;
@@ -164,12 +171,13 @@ icl_hash_insert(icl_hash_t *ht, void* key, void *data)
  * @param key -- the key of the new item
  * @param data -- pointer to the new item's data
  * @param olddata -- pointer to the old item's data (set upon return)
+ * @param new_flag new flag to replace the old one.
  *
  * @returns pointer to the new item.  Returns NULL on error.
  */
 
 icl_entry_t *
-icl_hash_update_insert(icl_hash_t *ht, void* key, void *data, void **olddata)
+icl_hash_update_insert(icl_hash_t *ht, void* key, void *data, void **olddata, int new_flag)
 {
     icl_entry_t *curr, *prev;
     unsigned int hash_val;
@@ -198,6 +206,10 @@ icl_hash_update_insert(icl_hash_t *ht, void* key, void *data, void **olddata)
     if(curr == NULL) return NULL; /* out of memory */
 
     curr->key = key;
+    curr->locked = new_flag & O_LOCK;
+    curr->write = new_flag & O_WRITE;
+    curr->read = new_flag & O_READ;
+    curr->refs += 1;
     curr->data = data;
     curr->next = ht->buckets[hash_val]; /* add at start */
 

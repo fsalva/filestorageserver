@@ -61,7 +61,7 @@ int read_file(){
  * @param   c_pid     PID del client.
  * @return  ssize_t    quantità di bytes letti o -1 in caso di errore   
  */
-size_t write_file(char * path, int c_pid, int c_socket, icl_hash_t * t){
+size_t write_file(char * path, int c_pid, int c_socket, icl_hash_t * t, int flag){
 
     void *      content = NULL;
     void *      debug = NULL;
@@ -78,7 +78,7 @@ size_t write_file(char * path, int c_pid, int c_socket, icl_hash_t * t){
     content = read_file_content(fp);
     f_size = get_file_size(fp);
 
-    if(icl_hash_insert(t, path, content) == NULL) return -1;
+    if(icl_hash_insert(t, path, content, flag) == NULL) return -1;
 
 
     fclose(fp);
@@ -96,6 +96,35 @@ size_t write_file(char * path, int c_pid, int c_socket, icl_hash_t * t){
 
 
     return f_size;
+}
+
+/**
+ * @brief Create a file in the table.
+ * 
+ * @param path      nome del file
+ * @param c_pid     pid del client che crea il file.
+ * @param c_socket  fd client che esegue l'operazione.
+ * @param hashtable puntatore all'hashtable su cui salvare il file.
+ * @param flag      flag (O_CREATE, O_LOCK)
+ * @return int      0 = successo, -1 insuccesso. 
+ */
+int create_file (char * path, int c_pid, int c_socket, icl_hash_t * hashtable, int flag){
+    void *  content = "x"; // Contenuto finto per evitare che resituisca NULL (E ci sia un bug nella creazione due file uguale)
+
+    if(icl_hash_insert(hashtable, path, content, flag) == NULL) return -1;
+
+
+    return 0;
+}
+
+int lock_file(char * path, int c_pid, int c_socket, icl_hash_t * hashtable, int flag){
     
+    void *  old_content = NULL;
+    
+    old_content = icl_hash_find(hashtable, path);   // Recupero il contenuto del file.
+
+    if(icl_hash_update_insert(hashtable, path, old_content, old_content, flag) == NULL) return -1;
+
+    return 0;
 
 }
