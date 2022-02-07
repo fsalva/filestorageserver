@@ -110,6 +110,10 @@ icl_hash_find(icl_hash_t *ht, void* key)
 {
     icl_entry_t* curr;
     unsigned int hash_val;
+    char * passata = (char *) key;
+    char * currkeyvalue;
+    
+    fprintf(stderr, "\n\tCI SONO %d cose:",ht->nentries);
 
     if(!ht || !key) {
         return NULL;
@@ -119,14 +123,13 @@ icl_hash_find(icl_hash_t *ht, void* key)
 
 
     for (curr=ht->buckets[hash_val]; curr != NULL; curr=curr->next){
-
-        printf("stampa icl:%s = %s? %d\n",(char*)key, (char*) curr->key, ht->hash_key_compare(curr->key, key));
         
+        currkeyvalue = (char *) curr->key;
         
-        
-        /*if ( ht->hash_key_compare(curr->key, key))
+        if ( ht->hash_key_compare(curr->key, key)){
             return(curr->data);
-            */
+        }
+            
     }
 
     return NULL;
@@ -156,24 +159,31 @@ icl_hash_insert(icl_hash_t *ht, void* key, void *data, int flags, int o_pid)
 
     for (curr=ht->buckets[hash_val]; curr != NULL; curr=curr->next)
     {
-        if ( ht->hash_key_compare(curr->key, key))
+        if ( ht->hash_key_compare(curr->key, key)){
+            fprintf(stderr, "\n\n\t(ICL INSERT:) Esisteva già.");
             return(NULL); /* key already exists */
+
+        }
 
     }
 
     /* if key was not found */
     curr = (icl_entry_t*)malloc(sizeof(icl_entry_t));
-    if(!curr) return NULL;
+    if(!curr){
+        fprintf(stderr, "\n[DEBUG]: Chiave non trovata!! Non inserisco nell'hashtable.");
+        return NULL;
+    } 
+
+    fprintf(stderr, "\n[DEBUG]: Sto creando l'oggetto :)");
 
     curr->key       = key;
-    curr->locked    = flags & O_LOCK;
-    curr->read      = flags & O_READ;
-    curr->write     = flags & O_WRITE;
+    curr->flags    |= flags & O_CREATE;
+    curr->flags    |= flags & O_LOCK; 
     curr->refs      = 0;
     curr->data      = data;
     curr->own_pid   = o_pid;
     
-    if(curr->locked) curr->lock_pid = o_pid; // Se alla creazione è richiesto il lock:
+    if(flags & O_LOCK) curr->lock_pid = o_pid; // Se alla creazione è richiesto il lock:
 
     else curr->lock_pid = 0;    // Se sto solo creando il file.
     
@@ -181,6 +191,8 @@ icl_hash_insert(icl_hash_t *ht, void* key, void *data, int flags, int o_pid)
 
     ht->buckets[hash_val] = curr;
     ht->nentries++;
+
+    fprintf(stderr,"\n\nContenuto: %s",(char*)curr->data);
 
     return curr;
 }
@@ -228,14 +240,14 @@ icl_hash_update_insert(icl_hash_t *ht, void* key, void *data, void **olddata, in
     if(curr == NULL) return NULL; /* out of memory */
 
     curr->key = key;
-    curr->locked = new_flag & O_LOCK;
-    curr->write = new_flag & O_WRITE;
-    curr->read = new_flag & O_READ;
+    
+    curr->flags    |= new_flag & O_CREATE;
+    curr->flags    |= new_flag & O_LOCK; 
     curr->refs += 1;
     curr->data = data;
     curr->next = ht->buckets[hash_val]; /* add at start */
 
-    if(curr->locked) curr->lock_pid = pid_client;
+    if(new_flag & O_LOCK) curr->lock_pid = pid_client;
 
     ht->buckets[hash_val] = curr;
     ht->nentries++;

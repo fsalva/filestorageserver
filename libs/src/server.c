@@ -158,6 +158,7 @@ void * connection_handler(void * p_client_socket) {
                         break;
 
                     case CLOSE_CONNECTION: 
+                    
                         send_response(client_socket, ACK, "Chiusura ordinata avvenuta correttamente. ");
                         close(client_socket);
                         client_socket = -1;
@@ -171,37 +172,46 @@ void * connection_handler(void * p_client_socket) {
                         
                         // Prendo il primo 'argomento' della richiesta, il path:
                         path = strtok(req->r_body, "+");
+                        //fprintf(stderr, "\n \tPATH: %s", path);
                         
                         // Ed il secondo, il flag.
                         o_flag = strtol(strtok(NULL, "+"), NULL, 10);
 
-                        //fprintf(stderr, "\nPath che cerco: %s",path);
+                        trim(path);
 
                         found = icl_hash_find(hashtable, path);
 
+
+                        fprintf(stderr, "[DEBUG]: Find restituisce %s", ( char * ) found);
+
                         if(found == NULL)   // File non esiste nella hashtable:
                         {
-                            if(o_flag & ! O_CREATE){  // ERR: Se non esiste non puoi lavorarci sopra.
+                            if(o_flag & ~O_CREATE){  // ERR: Se non esiste non puoi lavorarci sopra.
                                 send_response(client_socket, FILE_NOT_FOUND, INFO_FILE_NOT_FOUND);
+
                             }
-                            else {    // OK: File non esiste -> Crea file.
+                            else {    // OK -> Crea file.
                                 int res;
-                                 if((res = (create_file(path, req->r_pid, client_socket, hashtable, o_flag))) >= 0) // Crea file.
-                                    {
-                                    send_response(client_socket, FILE_CREATED, INFO_FILE_CREATED);
-                                    }
-                                else 
-                                    send_response(client_socket, FILE_NOT_CREATED, INFO_FILE_NOT_CREATED);  // Errore hashtable. 
+
+                                icl_hash_insert(hashtable, path, "x", o_flag, req->r_pid);
+                              
+
+
+                                send_response(client_socket, FILE_CREATED, INFO_FILE_CREATED);
 
                             }
                         }
                         else    // File esiste già
                         {
-                            if(o_flag | O_CREATE)   // ERR: Non puoi creare un file che esiste già.
+
+                            if(o_flag & O_CREATE)   // ERR: Non puoi creare un file che esiste già.
+                            
                                 send_response(client_socket, FILE_ALREADY_CREATED, INFO_FILE_ALREADY_CREATED);
                             else
                             {
                                 // Fai la lock.
+                                fprintf(stderr, "\nLOCCKO il file : %s. I suoi flag: O_CREATE: %ld, O_LOCK: %ld", path, o_flag & O_CREATE, o_flag & O_LOCK );
+
                                 if (lock_file(path, req->r_pid, client_socket, hashtable, o_flag) >= 0)
                                     send_response(client_socket, FILE_LOCKED, INFO_FILE_LOCKED);
                                 else

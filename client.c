@@ -74,13 +74,11 @@ main(int argc, char * const argv[])
     }
     else {  // TEST DEBUG
 
-        openFile("plutofucufkfkfkfk", O_CREATE | O_LOCK);
-        openFile("plutofucufkfkfkfk", O_CREATE | O_LOCK);
-        openFile("plutofucufkfkfkfk", O_LOCK);
-        openFile("plutofucufkfkfkfk", O_LOCK);
+        openFile("A", O_CREATE);
+        openFile("A", O_LOCK);
 
 
-        writeFile("pippo", "/dev/null");
+        //writeFile("A", "/dev/null");
 
         if (closeConnection(socket_n) == 0)  print_debug("Chiudo! \n", 1);
         else

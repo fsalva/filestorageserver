@@ -20,9 +20,7 @@ typedef struct icl_entry_s {
     void  * key;
     void  * data;
     int     refs;
-    int     locked;
-    int     read;
-    int     write;
+    int     flags;
     int     own_pid;
     int     lock_pid;
     struct icl_entry_s* next;

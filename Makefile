@@ -1,6 +1,6 @@
 CC = gcc 
 CFLAGS = -Wall -Wextra -pedantic -lpthread
-LIBCFLAGS = -c -std=c99 -Wall
+LIBCFLAGS = -c -std=c99 -Wall -g
 objects = filestorageserver.o 
 
 LIBPATH = -I./libs/
