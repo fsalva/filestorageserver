@@ -133,7 +133,7 @@ lock_file(char * path, int c_pid, int c_socket, icl_hash_t * hashtable, int flag
     
     old_content = icl_hash_find(hashtable, path);   // Recupero il contenuto del file.
 
-    if(icl_hash_update_insert(hashtable, path, old_content, old_content, flag, c_pid) == NULL) return -1;
+    if(icl_hash_update_insert(hashtable, path, old_content, &old_content, flag, c_pid) == NULL) return -1;
 
     return 0;
 

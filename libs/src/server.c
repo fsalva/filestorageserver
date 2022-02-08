@@ -192,8 +192,11 @@ void * connection_handler(void * p_client_socket) {
                             }
                             else {    // OK -> Crea file.
                                 int res;
+                                
+                                char * key = (char *) malloc(sizeof(char) * strlen(path));
+                                strcpy(key, path);
 
-                                icl_hash_insert(hashtable, path, "x", o_flag, req->r_pid);
+                                icl_hash_insert(hashtable, key, "x", o_flag, req->r_pid);
                               
 
 
@@ -212,7 +215,10 @@ void * connection_handler(void * p_client_socket) {
                                 // Fai la lock.
                                 fprintf(stderr, "\nLOCCKO il file : %s. I suoi flag: O_CREATE: %ld, O_LOCK: %ld", path, o_flag & O_CREATE, o_flag & O_LOCK );
 
-                                if (lock_file(path, req->r_pid, client_socket, hashtable, o_flag) >= 0)
+                                char * key = (char *) malloc(sizeof(char) * strlen(path));
+                                strcpy(key, path);
+
+                                if (lock_file(key, req->r_pid, client_socket, hashtable, o_flag) >= 0)
                                     send_response(client_socket, FILE_LOCKED, INFO_FILE_LOCKED);
                                 else
                                     send_response(client_socket, LOCK_ERROR, INFO_LOCK_ERROR);

@@ -111,7 +111,7 @@ icl_hash_find(icl_hash_t *ht, void* key)
     icl_entry_t* curr;
     unsigned int hash_val;
     char * passata = (char *) key;
-    char * currkeyvalue;
+    char * currkeyvalue = NULL;
     
     fprintf(stderr, "\n\tCI SONO %d cose:",ht->nentries);
 
@@ -169,14 +169,12 @@ icl_hash_insert(icl_hash_t *ht, void* key, void *data, int flags, int o_pid)
 
     /* if key was not found */
     curr = (icl_entry_t*)malloc(sizeof(icl_entry_t));
-    if(!curr){
-        fprintf(stderr, "\n[DEBUG]: Chiave non trovata!! Non inserisco nell'hashtable.");
-        return NULL;
-    } 
+    if(!curr)
+        return NULL; 
 
-    fprintf(stderr, "\n[DEBUG]: Sto creando l'oggetto :)");
+    char * chiave_che_sto_inserendo = (char * ) key;
 
-    curr->key       = key;
+    curr->key = key;
     curr->flags    |= flags & O_CREATE;
     curr->flags    |= flags & O_LOCK; 
     curr->refs      = 0;
