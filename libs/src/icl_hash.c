@@ -248,7 +248,6 @@ icl_hash_update_insert(icl_hash_t *ht, void* key, void *data, void **olddata, in
     if(new_flag & O_LOCK) curr->lock_pid = pid_client;
 
     ht->buckets[hash_val] = curr;
-    ht->nentries++;
 
     if(olddata!=NULL && *olddata!=NULL)
         *olddata = NULL;
