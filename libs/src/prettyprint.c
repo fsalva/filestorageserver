@@ -1,16 +1,12 @@
 #include "../prettyprint.h"
 #include "../constvalues.h"
 
-#include <unistd.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include <unistd.h>
 
-#define ANSI_COLOR_RED     "\x1b[31m"
-#define ANSI_COLOR_GREEN   "\x1b[32m"
-#define ANSI_COLOR_YELLOW  "\x1b[33m"
-#define ANSI_COLOR_BLUE    "\x1b[34m"
-#define ANSI_COLOR_MAGENTA "\x1b[35m"
-#define ANSI_COLOR_CYAN    "\x1b[36m"
-#define ANSI_COLOR_RESET   "\x1b[0m"
+
 
 void clearScreen()
 {
@@ -36,4 +32,51 @@ void print_debug(char * text, int debug_flag){
 	{
 		fprintf(stderr, ANSI_COLOR_YELLOW "[!] %s" ANSI_COLOR_RESET, text);
 	}
+}
+
+void print_info(char * thisF, int typeOfInfo, char * str, ...){
+  	
+	char * color = (char *) malloc(sizeof(char) * (strlen(ANSI_COLOR_BLUE) + 1));
+
+	switch (typeOfInfo)
+	{
+	case WARNING:
+		printf(ANSI_COLOR_YELLOW "\n[%s]" ANSI_COLOR_RESET, thisF);
+		break;
+	
+	case ERROR:
+		printf(ANSI_COLOR_RED "\n[%s]" ANSI_COLOR_RESET, thisF);
+
+		break;
+
+	case SUCCESS:
+		printf(ANSI_COLOR_GREEN "\n[%s]" ANSI_COLOR_RESET, thisF);
+		break;
+	
+	case INFO:
+		printf(ANSI_COLOR_BLUE "\n[%s]" ANSI_COLOR_RESET, thisF);
+		break;
+	
+	default: break;
+	}
+
+	char* s;
+
+    va_list vl;
+    va_start(vl, str);
+
+
+    for (char* ptr = str; *ptr != '\0'; ptr++)
+    {
+        if (*ptr == '%')
+        {
+            ptr++;
+            s = va_arg(vl, char*);
+            while (*s != '\0')
+                putchar(*s++);
+        }
+        putchar(*ptr);
+    }
+    va_end(vl);
+
 }

@@ -110,11 +110,7 @@ icl_hash_find(icl_hash_t *ht, void* key)
 {
     icl_entry_t* curr;
     unsigned int hash_val;
-    char * passata = (char *) key;
-    char * currkeyvalue = NULL;
     
-    fprintf(stderr, "\n\tCI SONO %d cose:",ht->nentries);
-
     if(!ht || !key) {
         return NULL;
     } 
@@ -123,9 +119,7 @@ icl_hash_find(icl_hash_t *ht, void* key)
 
 
     for (curr=ht->buckets[hash_val]; curr != NULL; curr=curr->next){
-        
-        currkeyvalue = (char *) curr->key;
-        
+                
         if ( ht->hash_key_compare(curr->key, key)){
             return(curr->data);
         }
@@ -160,7 +154,6 @@ icl_hash_insert(icl_hash_t *ht, void* key, void *data, int flags, int o_pid)
     for (curr=ht->buckets[hash_val]; curr != NULL; curr=curr->next)
     {
         if ( ht->hash_key_compare(curr->key, key)){
-            fprintf(stderr, "\n\n\t(ICL INSERT:) Esisteva già.");
             return(NULL); /* key already exists */
 
         }
@@ -172,9 +165,7 @@ icl_hash_insert(icl_hash_t *ht, void* key, void *data, int flags, int o_pid)
     if(!curr)
         return NULL; 
 
-    char * chiave_che_sto_inserendo = (char * ) key;
-
-    curr->key = key;
+    curr->key       = key;
     curr->flags    |= flags & O_CREATE;
     curr->flags    |= flags & O_LOCK; 
     curr->refs      = 0;
@@ -189,8 +180,6 @@ icl_hash_insert(icl_hash_t *ht, void* key, void *data, int flags, int o_pid)
 
     ht->buckets[hash_val] = curr;
     ht->nentries++;
-
-    fprintf(stderr,"\n\nContenuto: %s",(char*)curr->data);
 
     return curr;
 }

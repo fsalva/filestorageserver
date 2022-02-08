@@ -84,13 +84,8 @@ size_t write_file(char * path, int c_pid, int c_socket, icl_hash_t * t, int flag
 
     if(icl_hash_insert(t, path, content, flag, c_pid) == NULL) return -1;
 
-
-
     fclose(fp);
     
-
-    fprintf(stderr, "\nFatto, eh");
-
     debug = icl_hash_find(t, path);
     
     // ----------- SCRIVE NEL FILE I CONTENUTI DELLA CHIAVE DELL'HASHTABLE
@@ -118,10 +113,7 @@ create_file (char * path, int c_pid, int c_socket, icl_hash_t * hashtable, int f
     
     void *  content = "x"; // Contenuto finto per evitare che resituisca NULL (E ci sia un bug nella creazione due file uguali)
 
-
     if(icl_hash_insert(hashtable, path, content, flag, c_pid) == NULL) return -1;
-
-    fprintf(stderr, "\n[CREATE FILE]: Restituisco 0.\nContent: %s",(char * )content);
 
     return 0;
 }

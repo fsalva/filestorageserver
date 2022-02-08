@@ -144,15 +144,12 @@ void * connection_handler(void * p_client_socket) {
 
                     case OP_WRITE_FILES:
                         
-                        //int     flag = O_READ | O_WRITE;
-                        //void *  file_content = NULL;
-
                         // Invia un 'ACK' al client, e aspetta il contenuto del file: 
                         send_response(client_socket, ACK, INFO_WAITING_FILE);
 
                         pthread_cond_signal(&read_cond_var);  
 
-                        // Inserire contatore da parte del client per il numero di file richiesti: 
+                        // TODO: Inserire contatore da parte del client per il numero di file richiesti: 
                         
                         
                         break;
@@ -172,17 +169,12 @@ void * connection_handler(void * p_client_socket) {
                         
                         // Prendo il primo 'argomento' della richiesta, il path:
                         path = strtok(req->r_body, "+");
-                        //fprintf(stderr, "\n \tPATH: %s", path);
                         
                         // Ed il secondo, il flag.
                         o_flag = strtol(strtok(NULL, "+"), NULL, 10);
 
-                        trim(path);
-
+                        // Controllo l'eventuale contenuto puntato da path: 
                         found = icl_hash_find(hashtable, path);
-
-
-                        fprintf(stderr, "[DEBUG]: Find restituisce %s", ( char * ) found);
 
                         if(found == NULL)   // File non esiste nella hashtable:
                         {
@@ -190,16 +182,16 @@ void * connection_handler(void * p_client_socket) {
                                 send_response(client_socket, FILE_NOT_FOUND, INFO_FILE_NOT_FOUND);
 
                             }
-                            else {    // OK -> Crea file.
-                                int res;
+                            else {    // OK -> Crea file.                                
                                 
+                                // Alloco spazio per la chiave e ci copio dentro il path estrapolato da str_token
                                 char * key = (char *) malloc(sizeof(char) * strlen(path));
                                 strcpy(key, path);
-
+                                
+                                // Inserisco un valore "garbage" nell'entry, per evitare che la icl_hash_find restituisca NULL.
                                 icl_hash_insert(hashtable, key, "x", o_flag, req->r_pid);
-                              
 
-
+                                // Mando risposta al client.
                                 send_response(client_socket, FILE_CREATED, INFO_FILE_CREATED);
 
                             }
@@ -208,31 +200,34 @@ void * connection_handler(void * p_client_socket) {
                         {
 
                             if(o_flag & O_CREATE)   // ERR: Non puoi creare un file che esiste già.
-                            
+                            {
                                 send_response(client_socket, FILE_ALREADY_CREATED, INFO_FILE_ALREADY_CREATED);
+
+                                print_info("OPEN FILE", ERROR, "[Errore] Impossibile creare il file %s, esiste già.", path);
+                            }
                             else
                             {
-                                // Fai la lock.
-                                fprintf(stderr, "\nLOCCKO il file : %s. I suoi flag: O_CREATE: %ld, O_LOCK: %ld", path, o_flag & O_CREATE, o_flag & O_LOCK );
-
+                                // Fai la lock. (TODO: è giusto?)
                                 char * key = (char *) malloc(sizeof(char) * strlen(path));
                                 strcpy(key, path);
 
                                 if (lock_file(key, req->r_pid, client_socket, hashtable, o_flag) >= 0)
+                                {
                                     send_response(client_socket, FILE_LOCKED, INFO_FILE_LOCKED);
+                                    print_info("OPEN FILE", SUCCESS, "[Success] Lock acquisita sul file %s dal client (aggiungere pid.)", path);
+
+                                }
                                 else
                                     send_response(client_socket, LOCK_ERROR, INFO_LOCK_ERROR);
                             }
-
                         }
-                        
 
                         pthread_cond_signal(&read_cond_var);  
 
                         free(path);
                         break;
+                    
                     default:
-                        
                         break;
                 }
             }
@@ -367,28 +362,28 @@ void * thread_function( void __attribute((unused)) * arg){
         int client; // -- numero fd socket
         int * p_client = malloc(sizeof(int)); // -- mantengo un puntatore per passarlo all'handler. 
 
-        //Acquisisco la lock.
+        // Acquisisco la lock.
         Pthread_mutex_lock(&rd_mtx);
         
         //Se non c'è lavoro da fare mi metto in attesa.
         if((client = dequeue(&read_queue)) == -1){
             
-            //E attendo un segnale per essere risvegliato, rilasciando la lock. 
+            // E attendo un segnale per essere risvegliato, rilasciando la lock. 
             pthread_cond_wait(&read_cond_var, &rd_mtx);
             
-            //Riprovo!
+            // Riprovo!
             client = dequeue(&read_queue);
         } 
-        //Mollo la lock sulla coda.
+        // Mollo la lock sulla coda.
         Pthread_mutex_unlock(&rd_mtx);
 
-        //Se il thread è stato assegnato ad un task: 
+        // Se il thread è stato assegnato ad un task: 
         if(client != -1){
             
-            //Passo alla funzione che gestisce i task il client socket.
+            // Passo alla funzione che gestisce i task il client socket.
             * p_client = client;
 
-            //ed eseguo il lavoro.
+            // ed eseguo il lavoro.
             connection_handler(p_client);
         }
     }
