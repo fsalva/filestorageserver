@@ -80,7 +80,7 @@ openConnection(const char* sockname, int msec, const struct timespec abstime)
     pthread_t tid;
 
     memset(&sa, 0, sizeof(struct sockaddr_un));
-    strncpy(sa.sun_path, sockname, 108);
+    strcpy(sa.sun_path, sockname);
     sa.sun_family=AF_UNIX;
 
     fd_skt = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -142,8 +142,12 @@ closeConnection(const char * sockname){
 
 int 
 writeFile(const char * pathname, const char * dirname){
-    int response;
-    char * request_body;
+    
+    int     n, response, dataLen;
+    char *  request_body;
+    char *  buff = (char * ) malloc(sizeof(char) * (BUFSIZE + 1));
+    size_t  bytes_read;
+    FILE *  fp = NULL;
 
     this_pid = getpid();
     request_body = (char *) malloc( ( strlen(pathname) + strlen(dirname) + 1) * sizeof(char) );
@@ -152,8 +156,39 @@ writeFile(const char * pathname, const char * dirname){
 
     response = send_request(this_pid, OP_WRITE_FILES, str_split(request_body, '\0'));
     
-    // Inviare il file di ritorno.
 
+
+    if((fp = fopen(pathname, "r")) == NULL){
+        perror(fopen);
+        return -1;
+    }
+
+    dataLen = 0;
+    memset(buff, 0 , MAXLINE);
+
+    // Inviare il file di ritorno.
+    if(response >= 0){
+        
+ while((bytes_read = fread(buff, sizeof(char), BUFSIZE, fp)) > 0)
+                    {
+                        //fflush(stdout);
+                        
+                        
+                        if((n =  write(fd_skt, buff, bytes_read)) <= 0){
+                            perror("[-] Write: ");
+                            //Ignoro SIGPIPE e chiudo manualmente le connessioni lato server.
+                            break;
+                        }
+                    }
+
+                    write(fd_skt, "\000", sizeof("\000"));
+                    
+                    //Chiudo il file (TODO: va modificato per leggere in memoria, non da file system!)
+                    fclose(fp);
+
+        return response;
+    }
+    
     free(request_body);
 
     return response;
@@ -234,9 +269,6 @@ send_request(int pid, int opt, char ** arguments){
             // Per ora fa una conta dei bytes ricevuti in risposta.
             while((bytes_read = recv(fd_skt, buf, sizeof(buf), 0)) >= 0){
                 
-                // TODO: STAMPA SE DEBUG E' ABILITATO.
-                fprintf(stderr, buf);
-
                 dataLen += bytes_read;  // Tiene traccia del numero di bytes letti, per controllare se va in overflow.
                 
                 if(dataLen > (BUFSIZE-1)){

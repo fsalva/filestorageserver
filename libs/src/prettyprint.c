@@ -2,6 +2,7 @@
 #include "../constvalues.h"
 
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <unistd.h>
@@ -36,8 +37,6 @@ void print_debug(char * text, int debug_flag){
 
 void print_info(char * thisF, int typeOfInfo, char * str, ...){
   	
-	char * color = (char *) malloc(sizeof(char) * (strlen(ANSI_COLOR_BLUE) + 1));
-
 	switch (typeOfInfo)
 	{
 	case WARNING:

@@ -144,8 +144,32 @@ void * connection_handler(void * p_client_socket) {
 
                     case OP_WRITE_FILES:
                         
+                        char buf[4096];
+                        size_t letti = 0;
+
                         // Invia un 'ACK' al client, e aspetta il contenuto del file: 
                         send_response(client_socket, ACK, INFO_WAITING_FILE);
+
+                        memset(buf, 0, BUFSIZE);
+
+                        dataLen = 0;    // quantità di bytes ricevuti / buffer
+                        
+                        // TODO: 
+                        // Per ora fa una conta dei bytes ricevuti in risposta.
+                        while((bytes_read = recv(client_socket, buf, sizeof(buf), 0)) >= 0){
+                            
+                            dataLen += bytes_read;  // Tiene traccia del numero di bytes letti, per controllare se va in overflow.
+                            
+                            letti += dataLen;
+                            
+                            if(dataLen > (BUFSIZE-1)){
+                                memset(buf, 0, BUFSIZE);
+                                dataLen = 0;
+                    
+                            } else if( buf[dataLen] == '\000') break; 
+                        }
+
+                        fprintf(stderr, "\n[WRITE] Ricevuti %zu bytes. (Ora mettili nella roba giusta).", letti);
 
                         pthread_cond_signal(&read_cond_var);  
 

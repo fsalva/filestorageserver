@@ -25,7 +25,7 @@ $(DEPS): $(SRCPATH)/*
 	-ar -rvs $(DEPS) $(OUTPATH)/*
 
 client: client.o $(DEPS)
-	$(CC) $(CFLAGS) $(LIBPATH) -o $@ $^ 
+	$(CC) $(CFLAGS) $(LIBPATH) -o $@ $^ -g
 
 
 .PHONY : clean

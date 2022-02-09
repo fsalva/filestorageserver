@@ -76,7 +76,8 @@ main(int argc, char * const argv[])
 
         openFile("A", O_CREATE);
         openFile("A", O_LOCK);
-
+        
+        writeFile("/tmp/LIPSUM/randfile001.txt", "/test");
 
         //writeFile("A", "/dev/null");
 

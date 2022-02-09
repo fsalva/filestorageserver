@@ -164,7 +164,7 @@ icl_hash_insert(icl_hash_t *ht, void* key, void *data, int flags, int o_pid)
     curr = (icl_entry_t*)malloc(sizeof(icl_entry_t));
     if(!curr)
         return NULL; 
-
+    
     curr->key       = key;
     curr->flags    |= flags & O_CREATE;
     curr->flags    |= flags & O_LOCK; 
