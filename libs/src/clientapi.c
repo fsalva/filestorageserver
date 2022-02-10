@@ -32,6 +32,7 @@
 #include "../constvalues.h"
 #include "../prettyprint.h"
 #include "../stringutils.h"
+#include "../supported_operations.h"
 
 char *  format_request(char*, int, int);    // Formatta la richiesta in modo leggibile per il server.
 int     send_request(int, int, char **);   // Invia la richiesta formattata al server e riceve un codice di risposta.
@@ -143,71 +144,75 @@ closeConnection(const char * sockname){
 int 
 writeFile(const char * pathname, const char * dirname){
     
-    int     n, response, dataLen;
+    int     n, response;
     char *  request_body;
     char *  buff = (char * ) malloc(sizeof(char) * (BUFSIZE + 1));
+    char    f_size[256] = "";
     size_t  bytes_read;
+    size_t  f_dim;
     FILE *  fp = NULL;
-
-    this_pid = getpid();
-    request_body = (char *) malloc( ( strlen(pathname) + strlen(dirname) + 1) * sizeof(char) );
-    
-    formatStr(request_body, 2, pathname, dirname);
-
-    response = send_request(this_pid, OP_WRITE_FILES, str_split(request_body, '\0'));
-    
 
 
     if((fp = fopen(pathname, "r")) == NULL){
-        perror(fopen);
+        perror("fopen");
         return -1;
     }
 
-    dataLen = 0;
+    f_dim = get_file_size(fp); 
+    snprintf(f_size, sizeof f_size, "%zu", f_dim);
+
+    this_pid = getpid();
+    request_body = (char *) malloc( ( strlen(pathname) + strlen(dirname) + strlen(f_size) + 1) * sizeof(char) );
+
+
+
+    formatStr(request_body, 3, f_size, pathname, dirname);
+
+    response = send_request(this_pid, OP_WRITE_FILES, str_split(request_body, '\0'));
+
+    
+
     memset(buff, 0 , MAXLINE);
 
     // Inviare il file di ritorno.
     if(response >= 0){
         
- while((bytes_read = fread(buff, sizeof(char), BUFSIZE, fp)) > 0)
-                    {
-                        //fflush(stdout);
-                        
-                        
-                        if((n =  write(fd_skt, buff, bytes_read)) <= 0){
-                            perror("[-] Write: ");
-                            //Ignoro SIGPIPE e chiudo manualmente le connessioni lato server.
-                            break;
-                        }
-                    }
+        while((bytes_read = fread(buff, sizeof(char), BUFSIZE, fp)) > 0) {
+            
+            if((n =  write(fd_skt, buff, bytes_read)) <= 0){
+                perror("[-] Write: ");
+                break;
+            }
+        }
 
-                    write(fd_skt, "\000", sizeof("\000"));
-                    
-                    //Chiudo il file (TODO: va modificato per leggere in memoria, non da file system!)
-                    fclose(fp);
-
-        return response;
+        write(fd_skt, "\000", sizeof("\000"));
     }
     
     free(request_body);
+    free(buff);
+    fclose(fp);
 
     return response;
 }
 
 int 
 openFile(const char * pathname, int flags){
+    
     int     response;
     char *  request_body; 
+    char    flag_str[sizeof(int) + 2];
 
-    char flag_str[sizeof(int) + 2];
+    // Inserisco il valore dei flag nella stringa. 
     sprintf(flag_str, "%d", flags);
 
-    this_pid = getpid();
+    this_pid = getpid();    
     
+    // Alloco spazio per tutta la stringa (e la formatto).
     request_body = (char *) malloc( ( strlen(pathname) + strlen(flag_str) + 1) * sizeof(char) );
 
     formatStr(request_body, 2, pathname, flag_str);
     
+    // Invio la richiesta al server.
     response = send_request(this_pid, OP_OPEN_FILE, str_split(request_body, '\0'));
 
     free(request_body);
@@ -231,8 +236,6 @@ format_request(char* request_body, int opt, int pid){
     */
 
     sprintf(fn,"%d#%d#%s\n", opt, pid, request_body);
-
-
 
     return fn;
 }
@@ -277,8 +280,6 @@ send_request(int pid, int opt, char ** arguments){
                     
                 } else if( buf[dataLen] == '\000') break; 
             }
-
-            //printf("[PID: %d][+] RECEIVED: %d bytes.\n",getpid(), letti);
 
             free(*(arguments + i));
         }

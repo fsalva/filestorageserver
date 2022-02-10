@@ -142,34 +142,70 @@ void * connection_handler(void * p_client_socket) {
                         pthread_cond_signal(&read_cond_var);  
                         break;
 
-                    case OP_WRITE_FILES:
+                    case OP_WRITE_FILES:    // body: # path + dirname # 
                         
                         char buf[4096];
                         size_t letti = 0;
+                        char *  path = NULL;
+                        char *  dir  = NULL;
+                        void *  found = NULL;
+                        size_t  f_dim = 0;
 
-                        // Invia un 'ACK' al client, e aspetta il contenuto del file: 
-                        send_response(client_socket, ACK, INFO_WAITING_FILE);
+                        f_dim = strtol(strtok(req->r_body, "+"), NULL, 10);
 
-                        memset(buf, 0, BUFSIZE);
+                        fprintf(stderr, "\nIl client sta inviando un file di %zu bytes. Sarà mica matto?", f_dim);
 
-                        dataLen = 0;    // quantità di bytes ricevuti / buffer
-                        
-                        // TODO: 
-                        // Per ora fa una conta dei bytes ricevuti in risposta.
-                        while((bytes_read = recv(client_socket, buf, sizeof(buf), 0)) >= 0){
-                            
-                            dataLen += bytes_read;  // Tiene traccia del numero di bytes letti, per controllare se va in overflow.
-                            
-                            letti += dataLen;
-                            
-                            if(dataLen > (BUFSIZE-1)){
+                        // Prendo il primo 'argomento' della richiesta, il path:
+                        path = strtok(NULL, "+");
+
+                        // E prendo un riferimento alla cartella in cui resituire i file espulsi dalla cache:
+                        dir = strtok(NULL, "+");
+
+                        // Controllo l'eventuale contenuto puntato da path: 
+                        found = icl_hash_find(hashtable, path);
+
+                        if (found != NULL)  
+                        {   
+                            // Invia un ACK al client. 
+                            if(send_response(client_socket, ACK, INFO_WAITING_FILE) >= 0) {
+                                 
+                                dataLen = 0;    // quantità di bytes ricevuti / buffer
+                                
                                 memset(buf, 0, BUFSIZE);
-                                dataLen = 0;
-                    
-                            } else if( buf[dataLen] == '\000') break; 
+                                
+                                // Alloco spazio per la chiave e ci copio dentro il path estrapolato da str_token
+                                char * key = (char *) malloc(sizeof(char) * strlen(path));
+                                strcpy(key, path);
+                                        
+                                // TODO: 
+                                // Per ora fa una conta dei bytes ricevuti in risposta.
+                                while((bytes_read = recv(client_socket, buf, sizeof(buf), 0)) >= 0){
+                                    
+                                    dataLen += bytes_read;  // Tiene traccia del numero di bytes letti, per controllare se va in overflow.
+                                    
+                                    letti += dataLen;
+                                    
+                                    if(dataLen > (BUFSIZE-1)){
+                                        memset(buf, 0, BUFSIZE);
+                                        dataLen = 0;
+                            
+                                    } else if( buf[dataLen] == '\000') break; 
+                                }
+
+                                fprintf(stderr, "\n[WRITE] Ricevuti %zu bytes.", letti);
+                                
+                                    free(key);
+
+                            }
                         }
 
-                        fprintf(stderr, "\n[WRITE] Ricevuti %zu bytes. (Ora mettili nella roba giusta).", letti);
+                        else 
+                        {
+
+                            fprintf(stderr, "\nRichiesta fallita. Il file non esiste");
+                            send_response(client_socket, FILE_NOT_FOUND, INFO_FILE_NOT_FOUND);
+                            break;
+                        }
 
                         pthread_cond_signal(&read_cond_var);  
 
@@ -188,8 +224,8 @@ void * connection_handler(void * p_client_socket) {
 
                     case OP_OPEN_FILE:
                         long    o_flag = 0;     // default value
-                        char *  path = NULL;
-                        void *  found = NULL;
+                        path = NULL;
+                        found = NULL;
                         
                         // Prendo il primo 'argomento' della richiesta, il path:
                         path = strtok(req->r_body, "+");

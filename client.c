@@ -74,8 +74,8 @@ main(int argc, char * const argv[])
     }
     else {  // TEST DEBUG
 
-        openFile("A", O_CREATE);
-        openFile("A", O_LOCK);
+        openFile("/tmp/LIPSUM/randfile001.txt", O_CREATE);
+        openFile("/tmp/LIPSUM/randfile001.txt", O_LOCK);
         
         writeFile("/tmp/LIPSUM/randfile001.txt", "/test");
 

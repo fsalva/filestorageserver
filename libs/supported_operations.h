@@ -22,5 +22,9 @@ lock_file(char * path, int c_pid, int c_socket, icl_hash_t * hashtable, int flag
 void * 
 get_file(int);
 
+size_t
+get_file_size(FILE * );
+
+
 
 #endif
