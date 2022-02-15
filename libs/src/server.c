@@ -149,6 +149,7 @@ void * connection_handler(void * p_client_socket) {
                         char *  path = NULL;
                         char *  dir  = NULL;
                         void *  found = NULL;
+                        void *  content = NULL;
                         size_t  f_dim = 0;
 
                         f_dim = strtol(strtok(req->r_body, "+"), NULL, 10);
@@ -177,14 +178,19 @@ void * connection_handler(void * p_client_socket) {
                                 char * key = (char *) malloc(sizeof(char) * strlen(path));
                                 strcpy(key, path);
                                         
+                                content = malloc(f_dim + 1);
+
                                 // TODO: 
                                 // Per ora fa una conta dei bytes ricevuti in risposta.
-                                while((bytes_read = recv(client_socket, buf, sizeof(buf), 0)) >= 0){
+                                while((bytes_read = recv(client_socket, buf, sizeof(buf), 0)) >= 0 && letti < f_dim){
                                     
                                     dataLen += bytes_read;  // Tiene traccia del numero di bytes letti, per controllare se va in overflow.
                                     
-                                    letti += dataLen;
                                     
+                                    memcpy(content + letti, buf, sizeof(buf));
+
+                                    letti += dataLen;
+
                                     if(dataLen > (BUFSIZE-1)){
                                         memset(buf, 0, BUFSIZE);
                                         dataLen = 0;
@@ -192,9 +198,23 @@ void * connection_handler(void * p_client_socket) {
                                     } else if( buf[dataLen] == '\000') break; 
                                 }
 
+                                //memcpy(content, "\0", sizeof('\0'));
+
                                 fprintf(stderr, "\n[WRITE] Ricevuti %zu bytes.", letti);
                                 
-                                    free(key);
+                                icl_entry_t * test = NULL;
+
+                                if((test = icl_hash_update_insert(hashtable, key, content, &found, O_WRITE, req->r_pid)) == NULL)
+                                    send_response(client_socket, FILE_NOT_FOUND, INFO_FILE_NOT_FOUND);
+                                else 
+                                    send_response(client_socket, FILE_WRITTEN, INFO_FILE_WRITTEN);
+                                
+                                //free(content);
+                                if(test->data != NULL)
+                                    fprintf(stderr, "Bro dovresti aver messo : %s", (char *) test->data);
+
+
+                                free(key);
 
                             }
                         }

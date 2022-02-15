@@ -81,7 +81,10 @@ openConnection(const char* sockname, int msec, const struct timespec abstime)
     pthread_t tid;
 
     memset(&sa, 0, sizeof(struct sockaddr_un));
-    strcpy(sa.sun_path, sockname);
+
+
+    strcpy(sa.sun_path, "./socket/l.sock");
+
     sa.sun_family=AF_UNIX;
 
     fd_skt = socket(AF_UNIX, SOCK_STREAM, 0);
@@ -274,6 +277,9 @@ send_request(int pid, int opt, char ** arguments){
                 
                 dataLen += bytes_read;  // Tiene traccia del numero di bytes letti, per controllare se va in overflow.
                 
+                //TODO: togliere messaggi di debug
+                fprintf(stderr, buf);
+
                 if(dataLen > (BUFSIZE-1)){
                     memset(buf, 0, BUFSIZE);
                     dataLen = 0;
@@ -285,7 +291,6 @@ send_request(int pid, int opt, char ** arguments){
         }
 
         printf("\n");
-        free(arguments);
 
         return 0;
     }
