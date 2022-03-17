@@ -25,16 +25,15 @@
 request * parse_request(char * request_body){
         
     // Alloco spazio per la struct di ritorno
-    request * result = malloc(sizeof(result));
+    request * result = malloc(sizeof(request));
 
     // Alloco spazio per la stringa
-    char * s = calloc(strlen(request_body), sizeof(char));
+    char * s = calloc(strlen(request_body) + 1, sizeof(char));
 
-    strcpy(s, request_body);
+    strncpy(s, request_body, strlen(request_body));
 
     char* token = strtok(s, "#");
     
-
     int count = 0;
 
     while (token != NULL) {
@@ -50,8 +49,8 @@ request * parse_request(char * request_body){
             break;
 
         case 2:
-            result->r_body = malloc(strlen(token) * sizeof(char));
-            strcpy(result->r_body, token); 
+            result->r_body = malloc(sizeof(char) * (strlen(token) + 1));
+            strncpy(result->r_body, token, strlen(token)); 
             break;
 
         default:

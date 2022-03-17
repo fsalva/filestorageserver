@@ -7,12 +7,12 @@
 //display the list
 void printList(elem_t * head) {
     elem_t *ptr = head;
-    printf("\n[ ");
+    fprintf(stderr, "\n[ ");
 	
     //start from the beginning
     while(ptr != NULL) {
-        printf("(%d,%d) ",ptr->key,ptr->data);
-        ptr = ptr->next;
+      fprintf(stderr, "(%d,%d) ",ptr->key,ptr->data);
+      ptr = ptr->next;
     }
 	
    printf(" ]");
@@ -63,13 +63,13 @@ int length(elem_t *head) {
 }
 
 //find a link with given key
- elem_t* find(elem_t * head, int key) {
+ elem_t* find(elem_t ** head, int key) {
 
-   //start frm the first link
-    elem_t* current = head;
+   //start frm the first link 
+    elem_t* current = * head;
 
    //if list is empty
-   if(head == NULL) {
+   if(* head == NULL) {
       return NULL;
    }
 

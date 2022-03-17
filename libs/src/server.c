@@ -8,6 +8,7 @@
 #include "../supported_operations.h"
 #include "../icl_hash.h"
 #include "../constvalues.h"
+#include "../myfile.h"
 
 #include<stdint.h>
 #include<stdio.h>
@@ -42,7 +43,7 @@ pthread_mutex_t     td_mtx = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t      read_cond_var = PTHREAD_COND_INITIALIZER;
 pthread_cond_t      ssset_cond_var = PTHREAD_COND_INITIALIZER;
 
-icl_hash_t *        hashtable;
+icl_hash_t *        hashtable = NULL;
 
 
 int                 send_response(int, int, char *);
@@ -62,9 +63,9 @@ void * connection_handler(void * p_client_socket) {
     int         bytes_read;
 
     char        buff[MAXLINE+1];
-    char *      path;; 
+    char *      path = NULL; 
     
-    FILE *      fp; 
+    FILE *      fp = NULL; 
     size_t      dataLen;
     
     request * req = NULL; 
@@ -166,6 +167,7 @@ void * connection_handler(void * p_client_socket) {
                         // Controllo l'eventuale contenuto puntato da path: 
                         found = icl_hash_find(hashtable, path);
 
+
                         if (found != NULL)  
                         {   
                             // Invia un ACK al client. 
@@ -219,7 +221,7 @@ void * connection_handler(void * p_client_socket) {
                                 
                                 icl_entry_t * test = NULL;
 
-                                if(((test = icl_hash_update_insert(hashtable, key, content, &found, O_WRITE, req->r_pid)) == NULL))
+                                if(((test = icl_hash_update_insert(hashtable, key, content, &found)) == NULL))
                                     send_response(client_socket, FILE_NOT_FOUND, INFO_FILE_NOT_FOUND);
                                 else 
                                     send_response(client_socket, FILE_WRITTEN, INFO_FILE_WRITTEN);
@@ -258,16 +260,25 @@ void * connection_handler(void * p_client_socket) {
                         break;
 
                     case OP_OPEN_FILE:
-                        long    o_flag = 0;     // default value
+                        myfile *    file = malloc(sizeof(myfile));
+                        
+                        // Inizializzo lista fd (head = NULL) 
+                        file->fd_list = NULL;
+
+                        long        o_flag = 0;     // default value
                         path = NULL;
                         found = NULL;
                         
                         
                         // Prendo il primo 'argomento' della richiesta, il path:
                         path = strtok(req->r_body, "+");
-                        
+                        file->filename = path;
+                        file->content = (void *) "we";
                         // Ed il secondo, il flag.
                         o_flag = strtol(strtok(NULL, "+"), NULL, 10);
+                        file->flags = o_flag;
+                        push(&(file->fd_list), 1, 10);
+                        printFile(file);
 
                         // Controllo l'eventuale contenuto puntato da path: 
                         found = icl_hash_find(hashtable, path);
@@ -281,11 +292,13 @@ void * connection_handler(void * p_client_socket) {
                             else {    // OK -> Crea file.                                
                                 
                                 // Alloco spazio per la chiave e ci copio dentro il path estrapolato da str_token
-                                char * key = (char *) malloc(sizeof(char) * strlen(path));
-                                strcpy(key, path);
+                                char * key = malloc(sizeof(char) * (strlen(path) + 1));
+                                strncpy(key, path, strlen(path));
                                 
+                                icl_hash_dump(stdout, hashtable);
+
                                 // Inserisco un valore "garbage" nell'entry, per evitare che la icl_hash_find restituisca NULL.
-                                icl_hash_insert(hashtable, key, "x", o_flag, req->r_pid);
+                                icl_hash_insert(hashtable, key, "x");
 
                                 // Mando risposta al client.
                                 send_response(client_socket, FILE_CREATED, INFO_FILE_CREATED);
@@ -305,7 +318,7 @@ void * connection_handler(void * p_client_socket) {
                             {
                                 // Fai la lock. (TODO: è giusto?)
                                 char * key = (char *) malloc(sizeof(char) * strlen(path));
-                                strcpy(key, path);
+                                strncpy(key, path, strlen(path));
 
                                 if (lock_file(key, req->r_pid, client_socket, hashtable, o_flag) >= 0)
                                 {

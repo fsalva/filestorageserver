@@ -64,7 +64,7 @@ length (elem_t *head);
  * @return elem_t* 
  */
 elem_t * 
-find (elem_t * head, int key);
+find (elem_t ** head, int key);
 
 
 /**

@@ -17,12 +17,8 @@ extern "C" {
 #endif
 
 typedef struct icl_entry_s {
-    void  * key;
-    void  * data;
-    int     refs;
-    int     flags;
-    int     own_pid;
-    int     lock_pid;
+    void* key;
+    void *data;
     struct icl_entry_s* next;
 } icl_entry_t;
 
@@ -34,6 +30,12 @@ typedef struct icl_hash_s {
     int (*hash_key_compare)(void*, void*);
 } icl_hash_t;
 
+unsigned int
+hash_pjw(void* key);
+
+int 
+string_compare(void* a, void* b);
+
 icl_hash_t *
 icl_hash_create( int nbuckets, unsigned int (*hash_function)(void*), int (*hash_key_compare)(void*, void*) );
 
@@ -41,22 +43,14 @@ void
 * icl_hash_find(icl_hash_t *, void* );
 
 icl_entry_t
-* icl_hash_insert(icl_hash_t *, void*, void *, int, int),
-    * icl_hash_update_insert(icl_hash_t *, void*, void *, void **, int, int);
+* icl_hash_insert(icl_hash_t *, void*, void *),
+    * icl_hash_update_insert(icl_hash_t *, void*, void *, void **);
 
 int
 icl_hash_destroy(icl_hash_t *, void (*)(void*), void (*)(void*)),
     icl_hash_dump(FILE *, icl_hash_t *);
 
 int icl_hash_delete( icl_hash_t *ht, void* key, void (*free_key)(void*), void (*free_data)(void*) );
-
-/* simple hash function */
-unsigned int
-hash_pjw(void* key);
-
-/* compare function */
-int 
-string_compare(void* a, void* b);
 
 
 #define icl_hash_foreach(ht, tmpint, tmpent, kp, dp)    \

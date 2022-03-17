@@ -82,7 +82,7 @@ size_t write_file(char * path, int c_pid, int c_socket, icl_hash_t * t, int flag
     content = read_file_content(fp);
     f_size = get_file_size(fp);
 
-    if(icl_hash_insert(t, path, content, flag, c_pid) == NULL) return -1;
+    if(icl_hash_insert(t, path, content) == NULL) return -1;
 
     fclose(fp);
     
@@ -113,7 +113,7 @@ create_file (char * path, int c_pid, int c_socket, icl_hash_t * hashtable, int f
     
     void *  content = "x"; // Contenuto finto per evitare che resituisca NULL (E ci sia un bug nella creazione due file uguali)
 
-    if(icl_hash_insert(hashtable, path, content, flag, c_pid) == NULL) return -1;
+    if(icl_hash_insert(hashtable, path, content) == NULL) return -1;
 
     return 0;
 }
@@ -121,11 +121,14 @@ create_file (char * path, int c_pid, int c_socket, icl_hash_t * hashtable, int f
 int 
 lock_file(char * path, int c_pid, int c_socket, icl_hash_t * hashtable, int flag){
     
-    void *  old_content = NULL;
+    if(path == NULL) return -1;
+    if(hashtable == NULL) return -1;
     
+    void *  old_content = NULL;
     old_content = icl_hash_find(hashtable, path);   // Recupero il contenuto del file.
 
-    if(icl_hash_update_insert(hashtable, path, old_content, &old_content, flag, c_pid) == NULL) return -1;
+
+    if(icl_hash_update_insert(hashtable, path, old_content, &old_content) == NULL) return -1;
 
     return 0;
 

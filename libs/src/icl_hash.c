@@ -17,7 +17,6 @@
 #include <assert.h>
 
 #include "../icl_hash.h"
-#include "../constvalues.h"
 
 #include <limits.h>
 
@@ -33,7 +32,7 @@
  * algorithm based on Allen Holub's version. Accepts a pointer
  * to a datum to be hashed and returns an unsigned integer.
  * From: Keith Seymour's proxy library code
- *
+ * 
  * @param[in] key -- the string to be hashed
  *
  * @returns the hash index
@@ -76,13 +75,13 @@ icl_hash_create( int nbuckets, unsigned int (*hash_function)(void*), int (*hash_
     icl_hash_t *ht;
     int i;
 
-    
-
     ht = (icl_hash_t*) malloc(sizeof(icl_hash_t));
+    assert(ht!=NULL);
     if(!ht) return NULL;
 
     ht->nentries = 0;
     ht->buckets = (icl_entry_t**)malloc(nbuckets * sizeof(icl_entry_t*));
+    assert(ht->buckets!=NULL);
     if(!ht->buckets) return NULL;
 
     ht->nbuckets = nbuckets;
@@ -110,21 +109,14 @@ icl_hash_find(icl_hash_t *ht, void* key)
 {
     icl_entry_t* curr;
     unsigned int hash_val;
-    
-    if(!ht || !key) {
-        return NULL;
-    } 
+
+    if(!ht || !key) return NULL;
 
     hash_val = (* ht->hash_function)(key) % ht->nbuckets;
 
-
-    for (curr=ht->buckets[hash_val]; curr != NULL; curr=curr->next){
-                
-        if ( ht->hash_key_compare(curr->key, key)){
+    for (curr=ht->buckets[hash_val]; curr != NULL; curr=curr->next)
+        if ( ht->hash_key_compare(curr->key, key))
             return(curr->data);
-        }
-            
-    }
 
     return NULL;
 }
@@ -140,7 +132,7 @@ icl_hash_find(icl_hash_t *ht, void* key)
  */
 
 icl_entry_t *
-icl_hash_insert(icl_hash_t *ht, void* key, void *data, int flags, int o_pid)
+icl_hash_insert(icl_hash_t *ht, void* key, void *data)
 {
     icl_entry_t *curr;
     unsigned int hash_val;
@@ -149,34 +141,18 @@ icl_hash_insert(icl_hash_t *ht, void* key, void *data, int flags, int o_pid)
 
     hash_val = (* ht->hash_function)(key) % ht->nbuckets;
 
-
-
     for (curr=ht->buckets[hash_val]; curr != NULL; curr=curr->next)
-    {
-        if ( ht->hash_key_compare(curr->key, key)){
+        if ( ht->hash_key_compare(curr->key, key))
             return(NULL); /* key already exists */
-
-        }
-
-    }
 
     /* if key was not found */
     curr = (icl_entry_t*)malloc(sizeof(icl_entry_t));
-    if(!curr)
-        return NULL; 
-    
-    curr->key       = key;
-    curr->flags    |= flags & O_CREATE;
-    curr->flags    |= flags & O_LOCK; 
-    curr->refs      = 0;
-    curr->data      = data;
-    curr->own_pid   = o_pid;
-    
-    if(flags & O_LOCK) curr->lock_pid = o_pid; // Se alla creazione è richiesto il lock:
+    assert(curr != NULL);
+    if(!curr) return NULL;
 
-    else curr->lock_pid = 0;    // Se sto solo creando il file.
-    
-    curr->next      = ht->buckets[hash_val]; /* add at start */
+    curr->key = key;
+    curr->data = data;
+    curr->next = ht->buckets[hash_val]; /* add at start */
 
     ht->buckets[hash_val] = curr;
     ht->nentries++;
@@ -191,13 +167,12 @@ icl_hash_insert(icl_hash_t *ht, void* key, void *data, int flags, int o_pid)
  * @param key -- the key of the new item
  * @param data -- pointer to the new item's data
  * @param olddata -- pointer to the old item's data (set upon return)
- * @param new_flag new flag to replace the old one.
  *
  * @returns pointer to the new item.  Returns NULL on error.
  */
 
 icl_entry_t *
-icl_hash_update_insert(icl_hash_t *ht, void* key, void *data, void **olddata, int new_flag, int pid_client)
+icl_hash_update_insert(icl_hash_t *ht, void* key, void *data, void **olddata)
 {
     icl_entry_t *curr, *prev;
     unsigned int hash_val;
@@ -205,7 +180,6 @@ icl_hash_update_insert(icl_hash_t *ht, void* key, void *data, void **olddata, in
     if(!ht || !key) return NULL;
 
     hash_val = (* ht->hash_function)(key) % ht->nbuckets;
-
 
     /* Scan bucket[hash_val] for key */
     for (prev=NULL,curr=ht->buckets[hash_val]; curr != NULL; prev=curr, curr=curr->next)
@@ -224,19 +198,15 @@ icl_hash_update_insert(icl_hash_t *ht, void* key, void *data, void **olddata, in
 
     /* Since key was either not found, or found-and-removed, create and prepend new node */
     curr = (icl_entry_t*)malloc(sizeof(icl_entry_t));
+    assert(curr!=NULL);
     if(curr == NULL) return NULL; /* out of memory */
 
     curr->key = key;
-    
-    curr->flags    |= new_flag & O_CREATE;
-    curr->flags    |= new_flag & O_LOCK; 
-    curr->refs += 1;
     curr->data = data;
     curr->next = ht->buckets[hash_val]; /* add at start */
 
-    if(new_flag & O_LOCK) curr->lock_pid = pid_client;
-
     ht->buckets[hash_val] = curr;
+    ht->nentries++;
 
     if(olddata!=NULL && *olddata!=NULL)
         *olddata = NULL;
@@ -316,6 +286,7 @@ icl_hash_destroy(icl_hash_t *ht, void (*free_key)(void*), void (*free_data)(void
     return 0;
 }
 
+
 /**
  * Dump the hash table's contents to the given file pointer.
  *
@@ -344,5 +315,3 @@ icl_hash_dump(FILE* stream, icl_hash_t* ht)
 
     return 0;
 }
-
-

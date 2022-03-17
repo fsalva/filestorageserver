@@ -29,7 +29,7 @@ int fd_c;
 int 
 main(int argc, char * const argv[])
 {
-   /* int         opt;
+    int         opt;
     int         opcode;
     int         c_pid;
 
@@ -37,7 +37,7 @@ main(int argc, char * const argv[])
     char **     arguments;
 
     c_pid = getpid();
- */
+ 
     const struct timespec x = {5, 0};
 
     myfile * test_file = (myfile *) malloc(sizeof(myfile));
@@ -49,9 +49,13 @@ main(int argc, char * const argv[])
     push(&head, 2, 15);
     push(&head, 6, 10);
     pop(&head);
+
+    delete(&head, 3);
+    pop(&head);
+
     printList( head);
 
-    #ifdef ooooo
+    #ifndef ooooo
 
     while ((opt = getopt(argc, argv, "hf:w:WDr:R:dtlucp")) != -1) 
     {
@@ -95,7 +99,7 @@ main(int argc, char * const argv[])
         openFile("/home/francesco/Other/osc.c", O_CREATE);
         openFile("/home/francesco/Other/osc.c", O_LOCK);
         
-        writeFile("/home/francesco/Other/osc.c", "/test");
+        //writeFile("/home/francesco/Other/osc.c", "/test");
 
         if (closeConnection(socket_n) == 0)  print_debug("Chiudo! \n", 1);
         else

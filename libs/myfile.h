@@ -1,6 +1,8 @@
 #ifndef _MY_FILE_H_
 #define _MY_FILE_H_
 
+#include <time.h>
+
 #include "./list.h"
 
 typedef struct _myfile
@@ -11,5 +13,7 @@ typedef struct _myfile
     int         flags;
 } myfile;
 
+void
+printFile(myfile * f);
 
 #endif

@@ -47,28 +47,15 @@ int parse(config_parser * cp){
             
             remove_spaces(value);
             if (strcmp(key, "THREAD_WORKERS") == 0) cp->thread_workers_n = strtol(value, &mag, 10); 
-            if (strcmp(key, "MAX_DIM") == 0)  {cp->max_dim = strtol(value, &mag, 10); strncpy(cp->magnitude, mag, strlen(mag));}
+            if (strcmp(key, "MAX_DIM") == 0)  {cp->max_dim = strtol(value, &mag, 10); strncpy(cp->magnitude, mag, 2);}
             if (strcmp(key, "MAX_FILES") == 0) cp->max_file_n = strtol(value, &mag, 10);
             if (strcmp(key, "SOCKET_NAME") == 0) {
                 // alloca spazio per il path:
-                cp->socket_path = malloc(sizeof(char) * strlen(value));
-                strncpy(cp->socket_path, value, strlen(value));        
+                cp->socket_path = malloc(sizeof(char) * strlen(value) + 1);
+                strncpy(cp->socket_path, value, strlen(value) + 1);        
             }
         }
     }
-    
-    #define prettyprint
-    #ifdef prettyprint
-     fprintf(stderr, 
-        "[Info]\n\tPath della socket: %s\tThread workers:  %d\n\tNumero massimo di file memorizzabili: %d\n\tSpazio disponibile: %d%s", 
-        cp->socket_path, 
-        cp->thread_workers_n, 
-        cp->max_file_n, 
-        cp->max_dim, 
-        cp->magnitude);
-    #endif
-   
-
     free(line);
     fclose(fptr);
 
