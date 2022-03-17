@@ -173,7 +173,7 @@ writeFile(const char * pathname, const char * dirname){
 
     response = send_request(this_pid, OP_WRITE_FILES, str_split(request_body, '\0'));
 
-    
+    fprintf(stderr, "\nServer risponde: %d", response);
 
     memset(buff, 0 , MAXLINE);
 

@@ -4,13 +4,8 @@
 #include <stdbool.h>
 #include "../list.h"
 
-
-elem_t *head = NULL; 
-elem_t *current = NULL;
-
-
 //display the list
-void printList() {
+void printList(elem_t * head) {
     elem_t *ptr = head;
     printf("\n[ ");
 	
@@ -24,7 +19,7 @@ void printList() {
 }
 
 //insert link at the first location
-void insertFirst(int key, int data) {
+void insertFirst(elem_t *head, int key, int data) {
    //create a link
     elem_t *link = ( elem_t*) malloc(sizeof(elem_t));
 	
@@ -39,7 +34,7 @@ void insertFirst(int key, int data) {
 }
 
 //delete first item
- elem_t* deleteFirst() {
+ elem_t* deleteFirst(elem_t * head) {
 
    //save reference to first link
     elem_t *tempLink = head;
@@ -52,13 +47,13 @@ void insertFirst(int key, int data) {
 }
 
 //is list empty
-bool isEmpty() {
+bool isEmpty(elem_t *head) {
    return head == NULL;
 }
 
-int length() {
+int length(elem_t *head) {
    int length = 0;
-    elem_t *current;
+   elem_t *current;
 	
    for(current = head; current != NULL; current = current->next) {
       length++;
@@ -68,7 +63,7 @@ int length() {
 }
 
 //find a link with given key
- elem_t* find(int key) {
+ elem_t* find(elem_t * head, int key) {
 
    //start from the first link
     elem_t* current = head;
@@ -95,7 +90,7 @@ int length() {
 }
 
 //delete a link with given key
- elem_t* delete(int key) {
+ elem_t* delete(elem_t *head, int key) {
 
    //start from the first link
     elem_t* current = head;

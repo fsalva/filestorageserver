@@ -17,6 +17,9 @@
 #include "./libs/stringutils.h"
 #include "./libs/clientapi.h"
 #include "./libs/prettyprint.h"
+#include "./libs/myfile.h"
+#include "./libs/list.h"
+
 
 void print_usage();
 
@@ -36,6 +39,12 @@ main(int argc, char * const argv[])
     c_pid = getpid();
 
     const struct timespec x = {5, 0};
+
+    myfile * test_file = (myfile *) malloc(sizeof(myfile *));
+    elem_t * head = (elem_t * ) malloc(sizeof(elem_t *));
+
+
+
 
     while ((opt = getopt(argc, argv, "hf:w:WDr:R:dtlucp")) != -1) 
     {
@@ -69,17 +78,17 @@ main(int argc, char * const argv[])
         }
     }
 
+
+
     if( (fd_skt = (openConnection(socket_n, 100, x))) < 0){
         print_debug("Errore durante connessione con il server. Timeout.\n", 1);
     }
     else {  // TEST DEBUG
 
-        openFile("/tmp/LIPSUM/randfile001.txt", O_CREATE);
-        openFile("/tmp/LIPSUM/randfile001.txt", O_LOCK);
+        openFile("/home/francesco/Other/osc.c", O_CREATE);
+        openFile("/home/francesco/Other/osc.c", O_LOCK);
         
-        fprintf(stderr, "\nWrite file: %d" , writeFile("/tmp/LIPSUM/randfile001.txt", "/test"));
-
-        //writeFile("A", "/dev/null");
+        writeFile("/home/francesco/Other/osc.c", "/test");
 
         if (closeConnection(socket_n) == 0)  print_debug("Chiudo! \n", 1);
         else

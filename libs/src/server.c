@@ -152,12 +152,13 @@ void * connection_handler(void * p_client_socket) {
                         void *  content = NULL;
                         size_t  f_dim = 0;
 
-                        f_dim = strtol(strtok(req->r_body, "+"), NULL, 10);
 
-                        fprintf(stderr, "\nIl client sta inviando un file di %zu bytes. Sarà mica matto?", f_dim);
+
+                        f_dim = strtol(strtok(req->r_body, "+"), NULL, 10);
 
                         // Prendo il primo 'argomento' della richiesta, il path:
                         path = strtok(NULL, "+");
+                        fprintf(stderr, "\n\n%s - strlen : %ld\n", path, strlen(path));
 
                         // E prendo un riferimento alla cartella in cui resituire i file espulsi dalla cache:
                         dir = strtok(NULL, "+");
@@ -180,6 +181,15 @@ void * connection_handler(void * p_client_socket) {
                                         
                                 content = malloc(f_dim + 1);
 
+                                if(content == NULL)
+                                {
+                                fprintf(stderr, "CONTENT: Memory allocation failed\n");
+                                }
+                                dir = malloc(sizeof(1024));
+                                if(dir == NULL)
+                                {
+                                fprintf(stderr, "DIR: Memory allocation failed\n");
+                                }
                                 // TODO: 
                                 // Per ora fa una conta dei bytes ricevuti in risposta.
                                 while((bytes_read = recv(client_socket, buf, sizeof(buf), 0)) >= 0 && letti < f_dim){
@@ -187,7 +197,7 @@ void * connection_handler(void * p_client_socket) {
                                     dataLen += bytes_read;  // Tiene traccia del numero di bytes letti, per controllare se va in overflow.
                                     
                                     
-                                    memcpy(content + letti, buf, sizeof(buf));
+                                    memcpy(content + letti, buf + letti, sizeof(buf) - letti);
 
                                     letti += dataLen;
 
@@ -195,26 +205,31 @@ void * connection_handler(void * p_client_socket) {
                                         memset(buf, 0, BUFSIZE);
                                         dataLen = 0;
                             
-                                    } else if( buf[dataLen] == '\000') break; 
+                                    } else if( buf[dataLen] == '\0') break; 
                                 }
 
-                                //memcpy(content, "\0", sizeof('\0'));
+                                //memcpy(content + letti, "\0", sizeof('\0'));
+                                
+                                //fprintf(stderr, "\n[WRITE] Ricevuti %zu bytes., size of content's content... : %ld", letti, strlen((char *) content));
 
-                                fprintf(stderr, "\n[WRITE] Ricevuti %zu bytes.", letti);
+                                char * utility = (char *) malloc(sizeof(char));
+                                fprintf(stderr, "\nNON LO SCRIVO!.");
+
+
                                 
                                 icl_entry_t * test = NULL;
 
-                                if((test = icl_hash_update_insert(hashtable, key, content, &found, O_WRITE, req->r_pid)) == NULL)
+                                if(((test = icl_hash_update_insert(hashtable, key, content, &found, O_WRITE, req->r_pid)) == NULL))
                                     send_response(client_socket, FILE_NOT_FOUND, INFO_FILE_NOT_FOUND);
                                 else 
                                     send_response(client_socket, FILE_WRITTEN, INFO_FILE_WRITTEN);
                                 
                                 //free(content);
-                                if(test->data != NULL)
-                                    fprintf(stderr, "Bro dovresti aver messo : %s", (char *) test->data);
+                                //if(test->data != NULL)
+                                // fprintf(stderr, "Bro dovresti aver messo : %s", (char *) content);
 
 
-                                free(key);
+                                //free(key);
 
                             }
                         }
@@ -246,6 +261,7 @@ void * connection_handler(void * p_client_socket) {
                         long    o_flag = 0;     // default value
                         path = NULL;
                         found = NULL;
+                        
                         
                         // Prendo il primo 'argomento' della richiesta, il path:
                         path = strtok(req->r_body, "+");
@@ -294,7 +310,7 @@ void * connection_handler(void * p_client_socket) {
                                 if (lock_file(key, req->r_pid, client_socket, hashtable, o_flag) >= 0)
                                 {
                                     send_response(client_socket, FILE_LOCKED, INFO_FILE_LOCKED);
-                                    print_info("OPEN FILE", SUCCESS, "[Success] Lock acquisita sul file %s dal client (aggiungere pid.)", path);
+                                    print_info("OPEN FILE", 3, "[Success] Lock acquisita sul file %s dal client (aggiungere pid.)", path);
 
                                 }
                                 else
@@ -508,7 +524,7 @@ send_response(int c_fd, int op_code, char * response_info){
     
     char        buf[BUFSIZE];   
 
-    char *      resp = (char *) malloc(sizeof(char) * 255);
+    char        resp[255];
     char        op_str[sizeof(int) + 2];
     
     // Una sorta di Int -> String

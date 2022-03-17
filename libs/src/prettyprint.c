@@ -37,7 +37,7 @@ void print_debug(char * text, int debug_flag){
 
 void print_info(char * thisF, int typeOfInfo, char * str, ...){
   	
-	switch (typeOfInfo)
+	switch (4)
 	{
 	case WARNING:
 		printf(ANSI_COLOR_YELLOW "\n[%s]" ANSI_COLOR_RESET, thisF);

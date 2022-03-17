@@ -47,12 +47,12 @@ int parse(config_parser * cp){
             
             remove_spaces(value);
             if (strcmp(key, "THREAD_WORKERS") == 0) cp->thread_workers_n = strtol(value, &mag, 10); 
-            if (strcmp(key, "MAX_DIM") == 0)  {cp->max_dim = strtol(value, &mag, 10); strcpy(cp->magnitude, mag);}
+            if (strcmp(key, "MAX_DIM") == 0)  {cp->max_dim = strtol(value, &mag, 10); strncpy(cp->magnitude, mag, strlen(mag));}
             if (strcmp(key, "MAX_FILES") == 0) cp->max_file_n = strtol(value, &mag, 10);
             if (strcmp(key, "SOCKET_NAME") == 0) {
                 // alloca spazio per il path:
                 cp->socket_path = malloc(sizeof(char) * strlen(value));
-                strcpy(cp->socket_path, value);        
+                strncpy(cp->socket_path, value, strlen(value));        
             }
         }
     }

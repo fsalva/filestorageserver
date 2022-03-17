@@ -38,7 +38,7 @@ int main(int argc, char const *argv[])
     if((file_server = start_server(cp->thread_workers_n, cp->max_dim, cp->max_file_n, cp->socket_path)) == 1){}
 
     s_n = malloc(sizeof(cp->socket_path));
-    strcpy(s_n, cp->socket_path);
+    strncpy(s_n, cp->socket_path, strlen(cp->socket_path));
 
     signal(SIGINT, intHandler);
     signal(SIGPIPE, SIG_IGN);
