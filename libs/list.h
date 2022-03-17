@@ -17,7 +17,7 @@ typedef struct elem {
  * @param data dato da inserire
  */
 void
-insertFirst(elem_t *head, int key, int data);
+push (elem_t ** head, int key, int data);
 
 /**
  * @brief Elimina l'elemento in testa alla lista.
@@ -26,7 +26,7 @@ insertFirst(elem_t *head, int key, int data);
  * @return elem_t* dato eliminato
  */
 elem_t *
-deleteFirst(elem_t * head);
+pop (elem_t ** head);
 
 /**
  * @brief Stampa la lista
@@ -54,7 +54,7 @@ isEmpty(elem_t *head);
  * @return int 
  */
 int 
-length(elem_t *head);
+length (elem_t *head);
 
 /**
  * @brief Restituisce l'elemento corrispondente alla chiave cercata o null se non trovato.
@@ -64,7 +64,7 @@ length(elem_t *head);
  * @return elem_t* 
  */
 elem_t * 
-find(elem_t * head, int key);
+find (elem_t * head, int key);
 
 
 /**
@@ -75,7 +75,7 @@ find(elem_t * head, int key);
  * @return elem_t* 
  */
 elem_t * 
-delete(elem_t *head, int key);
+delete(elem_t ** head, int key);
 
 
 

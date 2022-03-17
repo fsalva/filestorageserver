@@ -29,7 +29,7 @@ int fd_c;
 int 
 main(int argc, char * const argv[])
 {
-    int         opt;
+   /* int         opt;
     int         opcode;
     int         c_pid;
 
@@ -37,14 +37,21 @@ main(int argc, char * const argv[])
     char **     arguments;
 
     c_pid = getpid();
-
+ */
     const struct timespec x = {5, 0};
 
-    myfile * test_file = (myfile *) malloc(sizeof(myfile *));
-    elem_t * head = (elem_t * ) malloc(sizeof(elem_t *));
+    myfile * test_file = (myfile *) malloc(sizeof(myfile));
+    elem_t * head = (elem_t * ) malloc(sizeof(elem_t));
 
+    push(&head, 1, 10);
+    push(&head, 2, 10);
+    push(&head, 3, 10);
+    push(&head, 2, 15);
+    push(&head, 6, 10);
+    pop(&head);
+    printList( head);
 
-
+    #ifdef ooooo
 
     while ((opt = getopt(argc, argv, "hf:w:WDr:R:dtlucp")) != -1) 
     {
@@ -98,6 +105,7 @@ main(int argc, char * const argv[])
 
     }
     //test
+    #endif
     
     exit(EXIT_FAILURE);
 

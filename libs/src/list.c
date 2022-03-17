@@ -18,29 +18,29 @@ void printList(elem_t * head) {
    printf(" ]");
 }
 
-//insert link at the first location
-void insertFirst(elem_t *head, int key, int data) {
+//insert link at the first location 
+void push(elem_t ** head, int key, int data) {
    //create a link
     elem_t *link = ( elem_t*) malloc(sizeof(elem_t));
-	
+	//
    link->key = key;
    link->data = data;
 	
    //point it to old first elem
-   link->next = head;
+   link->next = * head;
 	
    //point first to new first elem
-   head = link;
+   * head = link;
 }
 
 //delete first item
- elem_t* deleteFirst(elem_t * head) {
+ elem_t* pop(elem_t ** head) {
 
    //save reference to first link
-    elem_t *tempLink = head;
+    elem_t *tempLink = * head;
 	
    //mark next to first link as first 
-   head = head->next;
+   * head = (*head)->next;
 	
    //return the deleted link
    return tempLink;
@@ -65,7 +65,7 @@ int length(elem_t *head) {
 //find a link with given key
  elem_t* find(elem_t * head, int key) {
 
-   //start from the first link
+   //start frm the first link
     elem_t* current = head;
 
    //if list is empty
@@ -90,14 +90,14 @@ int length(elem_t *head) {
 }
 
 //delete a link with given key
- elem_t* delete(elem_t *head, int key) {
+ elem_t* delete(elem_t ** head, int key) {
 
    //start from the first link
-    elem_t* current = head;
+    elem_t* current = * head;
     elem_t* previous = NULL;
 	
    //if list is empty
-   if(head == NULL) {
+   if(* head == NULL) {
       return NULL;
    }
 
@@ -116,9 +116,9 @@ int length(elem_t *head) {
    }
 
    //found a match, update the link
-   if(current == head) {
+   if(current == *head) {
       //change first to point to next link
-      head = head->next;
+      * head = (* head)->next;
    } else {
       //bypass the current link
       previous->next = current->next;
