@@ -20,6 +20,7 @@
 #include "./libs/myfile.h"
 #include "./libs/list.h"
 
+#define FILENAME "/home/francesco/Documents/Unipi/LSO/filestorageserver/test.txt"
 
 void print_usage();
 
@@ -40,22 +41,7 @@ main(int argc, char * const argv[])
  
     const struct timespec x = {5, 0};
 
-    myfile * test_file = (myfile *) malloc(sizeof(myfile));
-    elem_t * head = (elem_t * ) malloc(sizeof(elem_t));
-
-    push(&head, 1, 10);
-    push(&head, 2, 10);
-    push(&head, 3, 10);
-    push(&head, 2, 15);
-    push(&head, 6, 10);
-    pop(&head);
-
-    delete(&head, 3);
-    pop(&head);
-
-    printList( head);
-
-    #ifndef ooooo
+ 
 
     while ((opt = getopt(argc, argv, "hf:w:WDr:R:dtlucp")) != -1) 
     {
@@ -90,16 +76,15 @@ main(int argc, char * const argv[])
     }
 
 
-
     if( (fd_skt = (openConnection(socket_n, 100, x))) < 0){
         print_debug("Errore durante connessione con il server. Timeout.\n", 1);
     }
     else {  // TEST DEBUG
 
-        openFile("/home/francesco/Other/osc.c", O_CREATE);
-        openFile("/home/francesco/Other/osc.c", O_LOCK);
+        openFile(FILENAME, O_CREATE);
+        openFile(FILENAME, O_LOCK);
         
-        //writeFile("/home/francesco/Other/osc.c", "/test");
+        writeFile(FILENAME, "/test");
 
         if (closeConnection(socket_n) == 0)  print_debug("Chiudo! \n", 1);
         else
@@ -108,8 +93,7 @@ main(int argc, char * const argv[])
         exit(EXIT_SUCCESS);
 
     }
-    //test
-    #endif
+
     
     exit(EXIT_FAILURE);
 

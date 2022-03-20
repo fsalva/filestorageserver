@@ -27,22 +27,21 @@ void intHandler() {
 
 int main(int argc, char const *argv[])
 {   
-    config_parser *     cp;    
     if(argc > 0) {if(argv[0] == NULL) {} }  //--    ignorami :) 
-
+    signal(SIGINT, intHandler);
+    signal(SIGPIPE, SIG_IGN);
+    
+    int file_server;
+    
+    config_parser *     cp = NULL;    
     cp = malloc(sizeof(config_parser));
 
     parse(cp);    
     
-    int file_server;
     if((file_server = start_server(cp->thread_workers_n, cp->max_dim, cp->max_file_n, cp->socket_path)) == 1){}
 
-    s_n = malloc(sizeof(char) * strlen(cp->socket_path) + 1);
+    s_n = calloc((strlen(cp->socket_path) + 1), sizeof(char));
     strncpy(s_n, cp->socket_path, strlen(cp->socket_path));
-
-    signal(SIGINT, intHandler);
-    signal(SIGPIPE, SIG_IGN);
-    
 
     loop_server();
 

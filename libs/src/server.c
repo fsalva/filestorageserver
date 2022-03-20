@@ -63,35 +63,43 @@ void * connection_handler(void * p_client_socket) {
     int         bytes_read;
 
     char        buff[MAXLINE+1];
+    char        buf [MAXLINE+1];
+
     char *      path = NULL; 
+    char *      dir  = NULL;
+
+    char *      saveptr = NULL;
+
+    void *      found = NULL;
+    void *      content = NULL;
     
-    FILE *      fp = NULL; 
+    size_t      f_dim = 0;
     size_t      dataLen;
     
-    request * req = NULL; 
-
+    request *   req = NULL; 
 
     client_socket = * ((int*)p_client_socket); 
     free(p_client_socket);  // -- corrisponde alla malloc in thread_function
 
-
     //Azzero il buffer.
-    memset(buff, 0 , MAXLINE);
+    memset(buff, 0 , sizeof(buff));
 
     while(!close_connection_flag){
+        
+        // LETTURA DEL BUFFER 
 
-        fp = NULL;
-        path = NULL;
         bytes_read = 0;
         dataLen = 0;
-
         
+        //Azzero il buffer.
+        memset(buff, 0 , sizeof(buff));
+
         while (!close_connection_flag && (bytes_read = read(client_socket, buff + dataLen, sizeof(buff) - dataLen - 1)) >= 0) {
             dataLen += bytes_read;
             //Se esco dai limiti del buffer o leggo un 'a capo' esco dal ciclo.  
-            if(buff[dataLen - 1] == '\n' || dataLen > (MAXLINE-1)) break;
-
-            if(bytes_read == 0 || bytes_read == -1 ) {close_connection_flag = 1;}   //TODO: Migliore gestione dell'errore ?
+            if(bytes_read == 0 || bytes_read == -1 ) close_connection_flag = 1;  // ERRORE
+            
+            if(buff[dataLen] == '\0' || buff[dataLen - 1] == '\n' || dataLen > (MAXLINE-1)) break;
 
         }
 
@@ -104,7 +112,10 @@ void * connection_handler(void * p_client_socket) {
                 perror("Read: ");            
                 break;
 
-            } else {    // Lettura avvenuta correttamente. 
+            } 
+            else {    // Lettura avvenuta correttamente. 
+
+                // PARSING DELLA RICHIESTA:
 
                 req = parse_request(buff);
 
@@ -112,61 +123,28 @@ void * connection_handler(void * p_client_socket) {
                 
                     case OP_READ_FILE:
 
-                        int n;
-                        
-                        printf("\n[🛫]Invio il file al client: %d.\n", client_socket);
-
-                        while((bytes_read = fread(buff, sizeof(char), BUFSIZE, fp)) > 0)
-                        {
-                            //fflush(stdout);
-                            
-                            
-                            if((n =  write(client_socket, buff, bytes_read)) <= 0){
-                                perror("[-] Write: ");
-                                //Ignoro SIGPIPE e chiudo manualmente le connessioni lato server.
-                                break;
-                            }
-                        }
-
-                        write(client_socket, "\000", sizeof("\000"));
-                        
-                        //Chiudo il file (TODO: va modificato per leggere in memoria, non da file system!)
-                        fclose(fp);
-
-                        //Libero la memoria usata per il path
-                        free(path);
-                        
-                        Pthread_mutex_lock(&ctr_mtx);
-                        handledSuccessfully++;
-                        Pthread_mutex_unlock(&ctr_mtx);
-
-                        pthread_cond_signal(&read_cond_var);  
-                        break;
+                    break;
 
                     case OP_WRITE_FILES:    // body: # path + dirname # 
                         
-                        char buf[4096];
                         size_t letti = 0;
-                        char *  path = NULL;
-                        char *  dir  = NULL;
-                        void *  found = NULL;
-                        void *  content = NULL;
-                        size_t  f_dim = 0;
+                        path = NULL;
+                        dir  = NULL;
+                        found = NULL;
+                        content = NULL;
+                        f_dim = 0;
 
-
-
+                        // Leggo dalla richiesta la dimensione del file
                         f_dim = strtol(strtok(req->r_body, "+"), NULL, 10);
 
-                        // Prendo il primo 'argomento' della richiesta, il path:
+                        // Leggo il path (nome del file) :
                         path = strtok(NULL, "+");
-                        fprintf(stderr, "\n\n%s - strlen : %ld\n", path, strlen(path));
 
                         // E prendo un riferimento alla cartella in cui resituire i file espulsi dalla cache:
                         dir = strtok(NULL, "+");
 
                         // Controllo l'eventuale contenuto puntato da path: 
                         found = icl_hash_find(hashtable, path);
-
 
                         if (found != NULL)  
                         {   
@@ -178,10 +156,10 @@ void * connection_handler(void * p_client_socket) {
                                 memset(buf, 0, BUFSIZE);
                                 
                                 // Alloco spazio per la chiave e ci copio dentro il path estrapolato da str_token
-                                char * key = (char *) malloc(sizeof(char) * strlen(path));
-                                strcpy(key, path);
+                                char * key = (char *) calloc(strlen(path) + 1, sizeof(char));
+                                strncpy(key, path, strlen(path));
                                         
-                                content = malloc(f_dim + 1);
+                                content = calloc(f_dim, sizeof(char));
 
                                 if(content == NULL)
                                 {
@@ -198,8 +176,7 @@ void * connection_handler(void * p_client_socket) {
                                     
                                     dataLen += bytes_read;  // Tiene traccia del numero di bytes letti, per controllare se va in overflow.
                                     
-                                    
-                                    memcpy(content + letti, buf + letti, sizeof(buf) - letti);
+                                    fprintf(stderr, "%s", buf);
 
                                     letti += dataLen;
 
@@ -210,15 +187,6 @@ void * connection_handler(void * p_client_socket) {
                                     } else if( buf[dataLen] == '\0') break; 
                                 }
 
-                                //memcpy(content + letti, "\0", sizeof('\0'));
-                                
-                                //fprintf(stderr, "\n[WRITE] Ricevuti %zu bytes., size of content's content... : %ld", letti, strlen((char *) content));
-
-                                char * utility = (char *) malloc(sizeof(char));
-                                fprintf(stderr, "\nNON LO SCRIVO!.");
-
-
-                                
                                 icl_entry_t * test = NULL;
 
                                 if(((test = icl_hash_update_insert(hashtable, key, content, &found)) == NULL))
@@ -226,12 +194,7 @@ void * connection_handler(void * p_client_socket) {
                                 else 
                                     send_response(client_socket, FILE_WRITTEN, INFO_FILE_WRITTEN);
                                 
-                                //free(content);
-                                //if(test->data != NULL)
-                                // fprintf(stderr, "Bro dovresti aver messo : %s", (char *) content);
 
-
-                                //free(key);
 
                             }
                         }
@@ -249,7 +212,7 @@ void * connection_handler(void * p_client_socket) {
                         // TODO: Inserire contatore da parte del client per il numero di file richiesti: 
                         
                         
-                        break;
+                    break;
 
                     case CLOSE_CONNECTION: 
                     
@@ -265,7 +228,7 @@ void * connection_handler(void * p_client_socket) {
                         // Inizializzo lista fd (head = NULL) 
                         file->fd_list = NULL;
 
-                        long        o_flag = 0;     // default value
+                        long    o_flag = 0;     // default value
                         path = NULL;
                         found = NULL;
                         
@@ -292,14 +255,23 @@ void * connection_handler(void * p_client_socket) {
                             else {    // OK -> Crea file.                                
                                 
                                 // Alloco spazio per la chiave e ci copio dentro il path estrapolato da str_token
-                                char * key = malloc(sizeof(char) * (strlen(path) + 1));
+                                char * key =  NULL;
+                                key = calloc((strlen(path) + 1), sizeof(char));
                                 strncpy(key, path, strlen(path));
                                 
-                                icl_hash_dump(stdout, hashtable);
-
                                 // Inserisco un valore "garbage" nell'entry, per evitare che la icl_hash_find restituisca NULL.
-                                icl_hash_insert(hashtable, key, "x");
+                                icl_entry_t * ret_value = NULL;
+                                ret_value = icl_hash_insert(hashtable, key, "x");
+                                
+                                if(ret_value == NULL)
+                                    fprintf(stderr, "\nNon ha proprio funzionato...");
 
+                                if(hashtable != NULL){
+                                    fprintf(stderr, "\nDump: \n");
+                                    if(icl_hash_dump(stdout, hashtable) == -1) fprintf(stderr, "Non ha");
+                                    fprintf(stderr, "\nKey: %s\n", key);
+
+                                } 
                                 // Mando risposta al client.
                                 send_response(client_socket, FILE_CREATED, INFO_FILE_CREATED);
 
@@ -317,14 +289,12 @@ void * connection_handler(void * p_client_socket) {
                             else
                             {
                                 // Fai la lock. (TODO: è giusto?)
-                                char * key = (char *) malloc(sizeof(char) * strlen(path));
+                                char * key = calloc((strlen(path) + 1), sizeof(char));
                                 strncpy(key, path, strlen(path));
 
                                 if (lock_file(key, req->r_pid, client_socket, hashtable, o_flag) >= 0)
                                 {
                                     send_response(client_socket, FILE_LOCKED, INFO_FILE_LOCKED);
-                                    print_info("OPEN FILE", 3, "[Success] Lock acquisita sul file %s dal client (aggiungere pid.)", path);
-
                                 }
                                 else
                                     send_response(client_socket, LOCK_ERROR, INFO_LOCK_ERROR);
@@ -341,7 +311,8 @@ void * connection_handler(void * p_client_socket) {
                 }
             }
         }
-        else break;
+        else 
+            break;
     }
 
     return NULL;

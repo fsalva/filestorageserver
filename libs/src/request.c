@@ -25,7 +25,7 @@
 request * parse_request(char * request_body){
         
     // Alloco spazio per la struct di ritorno
-    request * result = malloc(sizeof(request));
+    request * result = calloc(1, sizeof(request));
 
     // Alloco spazio per la stringa
     char * s = calloc(strlen(request_body) + 1, sizeof(char));
